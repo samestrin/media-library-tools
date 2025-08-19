@@ -1,0 +1,13 @@
+# Sample TV episode file placeholder
+# This represents an unorganized TV episode that needs to be moved to Season 03 directory
+# In real scenarios, this would be a binary video file
+# For testing purposes, this is a text placeholder
+
+Show: Drama Series
+Season: 3
+Episode: 1
+Title: Fresh Start
+Format: MP4
+Size: 1.0 GB (placeholder)
+Duration: 43 minutes
+Resolution: 1920x1080

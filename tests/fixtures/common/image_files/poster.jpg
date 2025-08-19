@@ -1,0 +1,12 @@
+# Sample JPEG image file placeholder
+# This represents a common movie/TV show poster image
+# In real scenarios, this would be a binary image file
+# For testing purposes, this is a text placeholder
+
+Format: JPEG
+Size: 2.5 MB (placeholder)
+Dimensions: 1920x2880 pixels
+Color Space: sRGB
+Compression: 85% quality
+Type: Movie Poster
+Description: Sample poster artwork for testing

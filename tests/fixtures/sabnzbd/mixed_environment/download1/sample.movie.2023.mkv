@@ -1,0 +1,10 @@
+# Sample video file placeholder
+# This represents a downloaded movie file
+# In real scenarios, this would be a binary video file
+# For testing purposes, this is a text placeholder
+
+Movie: Sample Movie (2023)
+Format: MKV
+Size: 1.2 GB (placeholder)
+Duration: 120 minutes
+Resolution: 1920x1080

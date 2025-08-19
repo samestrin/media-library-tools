@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<nzb xmlns="http://www.newzbin.com/DTD/2003/nzb">
+  <head>
+    <meta type="title">Documentary Series S01E05</meta>
+    <meta type="tag">documentary</meta>
+  </head>
+  <file poster="uploader@example.com" date="1640995200" subject="Documentary Series S01E05 [1/25] - &quot;documentary.s01e05.mkv&quot; yEnc">
+    <groups>
+      <group>alt.binaries.documentaries</group>
+    </groups>
+    <segments>
+      <segment bytes="512000" number="1">doc123@example.com</segment>
+    </segments>
+  </file>
+</nzb>

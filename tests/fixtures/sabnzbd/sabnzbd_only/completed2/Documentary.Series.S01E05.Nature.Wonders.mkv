@@ -1,0 +1,14 @@
+# Sample documentary episode file placeholder
+# This represents a downloaded documentary episode file
+# In real scenarios, this would be a binary video file
+# For testing purposes, this is a text placeholder
+
+Series: Documentary Series
+Season: 1
+Episode: 5
+Title: Nature Wonders
+Format: MKV
+Size: 1.8 GB (placeholder)
+Duration: 58 minutes
+Resolution: 1920x1080
+Genre: Documentary

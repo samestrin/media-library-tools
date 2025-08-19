@@ -1,0 +1,12 @@
+# Sample AVI video file placeholder
+# This represents a common AVI video file for testing
+# In real scenarios, this would be a binary video file
+# For testing purposes, this is a text placeholder
+
+Format: AVI (Audio Video Interleave)
+Codec: XviD
+Size: 700 MB (placeholder)
+Duration: 95 minutes
+Resolution: 1280x720
+Framerate: 25 fps
+Audio: MP3 Stereo

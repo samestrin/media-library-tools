@@ -1,0 +1,16 @@
+# Sample FLAC audio file placeholder
+# This represents a common FLAC audio file for testing
+# In real scenarios, this would be a binary audio file
+# For testing purposes, this is a text placeholder
+
+Format: FLAC (Free Lossless Audio Codec)
+Bitrate: Variable (lossless)
+Size: 35 MB (placeholder)
+Duration: 4:12
+Sample Rate: 96 kHz
+Bit Depth: 24-bit
+Channels: Stereo
+Genre: Classical
+Artist: Sample Orchestra
+Album: Sample Symphony
+Title: Movement I

@@ -1,0 +1,12 @@
+# Sample director interview placeholder
+# This represents a movie extra that needs Plex naming
+# Should be renamed to: Epic Movie (2023)-interview.avi
+# For testing purposes, this is a text placeholder
+
+Featurette: Director Interview
+Movie: Epic Movie (2023)
+Format: AVI
+Size: 320 MB (placeholder)
+Duration: 18 minutes
+Type: Interview
+Interviewee: Director John Smith

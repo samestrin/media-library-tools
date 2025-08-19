@@ -1,0 +1,12 @@
+# Sample deleted scene placeholder
+# This represents a movie extra that needs Plex naming
+# Should be renamed to: Epic Movie (2023)-deleted01.mkv
+# For testing purposes, this is a text placeholder
+
+Featurette: Deleted Scene 01
+Movie: Epic Movie (2023)
+Format: MKV
+Size: 125 MB (placeholder)
+Duration: 3 minutes
+Type: Deleted Scene
+Scene: Extended character dialogue

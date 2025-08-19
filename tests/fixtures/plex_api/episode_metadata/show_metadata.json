@@ -1,0 +1,73 @@
+{
+  "MediaContainer": {
+    "size": 1,
+    "allowSync": true,
+    "identifier": "com.plexapp.plugins.library",
+    "librarySectionID": 2,
+    "librarySectionTitle": "TV Shows",
+    "librarySectionUUID": "12345678-1234-5678-9abc-123456789012",
+    "mediaTagPrefix": "/system/bundle/media/flags/",
+    "mediaTagVersion": 1640995200,
+    "Metadata": [
+      {
+        "ratingKey": "12345",
+        "key": "/library/metadata/12345",
+        "parentRatingKey": "12340",
+        "grandparentRatingKey": "12300",
+        "guid": "plex://episode/5d9c086fe98e47001eb84341",
+        "parentGuid": "plex://season/5d9c086fe98e47001eb84340",
+        "grandparentGuid": "plex://show/5d9c086fe98e47001eb84300",
+        "type": "episode",
+        "title": "Pilot Episode",
+        "grandparentKey": "/library/metadata/12300",
+        "parentKey": "/library/metadata/12340",
+        "grandparentTitle": "Test TV Show",
+        "parentTitle": "Season 1",
+        "contentRating": "TV-14",
+        "summary": "The pilot episode of Test TV Show where everything begins.",
+        "index": 1,
+        "parentIndex": 1,
+        "year": 2023,
+        "thumb": "/library/metadata/12345/thumb/1640995200",
+        "art": "/library/metadata/12300/art/1640995200",
+        "parentThumb": "/library/metadata/12340/thumb/1640995200",
+        "grandparentThumb": "/library/metadata/12300/thumb/1640995200",
+        "grandparentArt": "/library/metadata/12300/art/1640995200",
+        "duration": 2520000,
+        "originallyAvailableAt": "2023-01-15",
+        "addedAt": 1640995200,
+        "updatedAt": 1640995200,
+        "Media": [
+          {
+            "id": 54321,
+            "duration": 2520000,
+            "bitrate": 8000,
+            "width": 1920,
+            "height": 1080,
+            "aspectRatio": 1.78,
+            "audioChannels": 6,
+            "audioCodec": "ac3",
+            "videoCodec": "h264",
+            "videoResolution": "1080",
+            "container": "mkv",
+            "videoFrameRate": "24p",
+            "audioProfile": "lc",
+            "videoProfile": "high",
+            "Part": [
+              {
+                "id": 98765,
+                "key": "/library/parts/98765/1640995200/file.mkv",
+                "duration": 2520000,
+                "file": "/media/TV Shows/Test TV Show/Season 01/Test TV Show - S01E01 - Pilot Episode.mkv",
+                "size": 1073741824,
+                "audioProfile": "lc",
+                "container": "mkv",
+                "videoProfile": "high"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

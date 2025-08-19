@@ -1,0 +1,14 @@
+# Sample comedy episode file placeholder
+# This represents a TV episode mixed with movie files
+# In real scenarios, this would be a binary video file
+# For testing purposes, this is a text placeholder
+
+Show: Comedy Show
+Season: 1
+Episode: 1
+Title: First Laugh
+Format: MP4
+Size: 450 MB (placeholder)
+Duration: 22 minutes
+Resolution: 1280x720
+Genre: Comedy

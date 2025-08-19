@@ -1,0 +1,14 @@
+# Sample comedy show episode file placeholder
+# This represents a downloaded TV episode file via BitTorrent
+# In real scenarios, this would be a binary video file
+# For testing purposes, this is a text placeholder
+
+Show: Comedy Show
+Season: 2
+Episode: 10
+Format: MP4
+Size: 500 MB (placeholder)
+Duration: 22 minutes
+Resolution: 1280x720
+Genre: Comedy
+Quality: 720p
