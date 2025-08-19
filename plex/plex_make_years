@@ -1,0 +1,600 @@
+#!/usr/bin/env python3
+"""
+Plex Year Organizer
+
+A Python tool for organizing media directories by year. This script analyzes directory
+names to extract year information and automatically creates year-based directory
+structures that are ideal for organizing movies and TV shows by release year.
+
+Features:
+- Intelligent year detection from various directory name patterns
+- Automatic year directory creation
+- Directory collision handling with smart merging
+- Support for multiple year naming conventions
+- File-based locking mechanism
+- Dry-run mode for safe testing
+- Progress tracking and detailed statistics
+- Cron-friendly operation
+
+Author: Media Library Tools Project
+Version: 2.1.0
+"""
+
+import argparse
+import fcntl
+import os
+import re
+import shutil
+import sys
+import tempfile
+from pathlib import Path
+from typing import Dict, List, Optional, Set, Tuple, Union
+
+
+def is_non_interactive() -> bool:
+    """
+    Detect if we're running in a non-interactive environment (e.g., cron job).
+    
+    Returns:
+        bool: True if running non-interactively, False otherwise
+    """
+    # Check if stdin is not a TTY (common in cron jobs)
+    if not sys.stdin.isatty():
+        return True
+    
+    # Check common environment variables that indicate automation
+    automation_vars = ['CRON', 'CI', 'AUTOMATED', 'NON_INTERACTIVE']
+    for var in automation_vars:
+        if os.environ.get(var):
+            return True
+    
+    # Check if TERM is not set (common in cron)
+    if not os.environ.get('TERM'):
+        return True
+    
+    return False
+
+
+class YearOrganizer:
+    """Main class for organizing directories by year."""
+    
+    def __init__(self, dry_run: bool = False, force: bool = False, 
+                 base_dir: Optional[Path] = None, year_range: Tuple[int, int] = (1900, 2030)):
+        self.dry_run = dry_run
+        self.force = force
+        self.base_dir = base_dir
+        self.year_range = year_range
+        self.lock_file = None
+        
+        # Year detection patterns (ordered by specificity)
+        self.year_patterns = [
+            # Parentheses patterns
+            (r'\((\d{4})\)', 'Parentheses format (YYYY)'),
+            (r'\[(\d{4})\]', 'Brackets format [YYYY]'),
+            
+            # Dot/space separated patterns
+            (r'\.(\d{4})\.', 'Dot separated .YYYY.'),
+            (r'\s(\d{4})\s', 'Space separated YYYY'),
+            (r'-(\d{4})-', 'Dash separated -YYYY-'),
+            (r'_(\d{4})_', 'Underscore separated _YYYY_'),
+            
+            # End of string patterns
+            (r'\.(\d{4})$', 'Dot ending .YYYY'),
+            (r'\s(\d{4})$', 'Space ending YYYY'),
+            (r'-(\d{4})$', 'Dash ending -YYYY'),
+            (r'_(\d{4})$', 'Underscore ending _YYYY'),
+            
+            # Beginning patterns
+            (r'^(\d{4})\.', 'Dot beginning YYYY.'),
+            (r'^(\d{4})\s', 'Space beginning YYYY '),
+            (r'^(\d{4})-', 'Dash beginning YYYY-'),
+            (r'^(\d{4})_', 'Underscore beginning YYYY_'),
+            
+            # Standalone year (be careful with this one)
+            (r'\b(\d{4})\b', 'Standalone year YYYY'),
+        ]
+        
+        # Statistics tracking
+        self.stats = {
+            'total_directories': 0,
+            'processed_directories': 0,
+            'skipped_directories': 0,
+            'created_year_directories': 0,
+            'merged_directories': 0,
+            'year_patterns_found': {},
+            'years_found': set(),
+            'errors': []
+        }
+    
+    def acquire_lock(self) -> bool:
+        """Acquire file lock to prevent multiple instances."""
+        if self.force:
+            return True
+            
+        try:
+            self.lock_file = tempfile.NamedTemporaryFile(
+                mode='w',
+                prefix='plex_make_years_',
+                suffix='.lock',
+                delete=False
+            )
+            fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self.lock_file.write(str(os.getpid()))
+            self.lock_file.flush()
+            return True
+        except (IOError, OSError) as e:
+            if self.lock_file:
+                self.lock_file.close()
+                try:
+                    os.unlink(self.lock_file.name)
+                except OSError:
+                    pass
+                self.lock_file = None
+            print(f"Error: Another instance is already running. Use --force to override.")
+            print(f"Lock error: {e}")
+            return False
+    
+    def release_lock(self) -> None:
+        """Release the file lock."""
+        if self.lock_file:
+            try:
+                fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
+                self.lock_file.close()
+                os.unlink(self.lock_file.name)
+            except (IOError, OSError):
+                pass
+            finally:
+                self.lock_file = None
+    
+    def extract_year_info(self, dirname: str) -> Tuple[Optional[int], str, str]:
+        """Extract year information from directory name.
+        
+        Returns:
+            Tuple of (year, pattern_description, matched_text)
+        """
+        for pattern, description in self.year_patterns:
+            match = re.search(pattern, dirname)
+            if match:
+                try:
+                    year = int(match.group(1))
+                    
+                    # Validate year is within reasonable range
+                    if self.year_range[0] <= year <= self.year_range[1]:
+                        return year, description, match.group(0)
+                        
+                except (ValueError, IndexError):
+                    continue
+        
+        return None, "No pattern matched", ""
+    
+    def generate_year_directory_name(self, year: int) -> str:
+        """Generate year directory name."""
+        return str(year)
+    
+    def handle_directory_collision(self, source_dir: Path, target_year_dir: Path) -> Tuple[Path, str, List[str]]:
+        """Handle directory collisions when moving to year directory.
+        
+        Returns:
+            Tuple of (final_target_path, collision_status, actions_taken)
+        """
+        actions = []
+        
+        if not target_year_dir.exists():
+            return target_year_dir / source_dir.name, "no_collision", actions
+        
+        final_target = target_year_dir / source_dir.name
+        
+        if not final_target.exists():
+            return final_target, "year_dir_exists", actions
+        
+        if final_target.is_file():
+            # Target is a file, need to rename it
+            backup_name = f"{final_target.stem}_backup{final_target.suffix}"
+            backup_path = final_target.parent / backup_name
+            
+            counter = 1
+            while backup_path.exists():
+                backup_name = f"{final_target.stem}_backup_{counter}{final_target.suffix}"
+                backup_path = final_target.parent / backup_name
+                counter += 1
+            
+            if not self.dry_run:
+                final_target.rename(backup_path)
+                actions.append(f"Renamed conflicting file to {backup_path.name}")
+            else:
+                actions.append(f"Would rename conflicting file to {backup_path.name}")
+            
+            return final_target, "file_conflict_resolved", actions
+        
+        elif final_target.is_dir():
+            # Target directory exists, need to merge or create unique name
+            existing_items = list(final_target.iterdir())
+            source_items = list(source_dir.iterdir())
+            
+            # Check if we can merge (no conflicting files)
+            can_merge = True
+            conflicts = []
+            
+            for source_item in source_items:
+                target_item = final_target / source_item.name
+                if target_item.exists():
+                    if source_item.is_file() and target_item.is_file():
+                        # File conflict - check if they're the same
+                        if source_item.stat().st_size != target_item.stat().st_size:
+                            conflicts.append(source_item.name)
+                            can_merge = False
+                    elif source_item.is_dir() and target_item.is_dir():
+                        # Directory conflict - would need recursive merge
+                        conflicts.append(f"{source_item.name}/ (directory)")
+                        can_merge = False
+                    else:
+                        # Type mismatch (file vs directory)
+                        conflicts.append(f"{source_item.name} (type mismatch)")
+                        can_merge = False
+            
+            if can_merge and not conflicts:
+                # Safe to merge
+                return final_target, "merge_safe", actions
+            else:
+                # Create unique directory name
+                base_name = source_dir.name
+                counter = 1
+                while True:
+                    unique_name = f"{base_name}_{counter}"
+                    unique_path = target_year_dir / unique_name
+                    if not unique_path.exists():
+                        actions.append(f"Created unique name due to conflicts: {conflicts}")
+                        return unique_path, "unique_name_created", actions
+                    counter += 1
+        
+        return final_target, "unknown_collision", actions
+    
+    def merge_directories(self, source_dir: Path, target_dir: Path) -> List[str]:
+        """Merge source directory into target directory.
+        
+        Returns:
+            List of actions taken during merge
+        """
+        actions = []
+        
+        for item in source_dir.iterdir():
+            target_item = target_dir / item.name
+            
+            if not target_item.exists():
+                # Simple move
+                if self.dry_run:
+                    actions.append(f"Would move {item.name} to target")
+                else:
+                    shutil.move(str(item), str(target_item))
+                    actions.append(f"Moved {item.name} to target")
+            else:
+                # Item exists in target, skip (we already checked for conflicts)
+                actions.append(f"Skipped {item.name} (already exists in target)")
+        
+        return actions
+    
+    def process_directory(self, dir_path: Path, base_dir: Path) -> Tuple[bool, str]:
+        """Process a single directory."""
+        try:
+            # Extract year information
+            year, pattern_desc, matched_text = self.extract_year_info(dir_path.name)
+            
+            if year is None:
+                print(f"  ⚠️  No year pattern found in: {dir_path.name}")
+                self.stats['skipped_directories'] += 1
+                return True, "no_year_pattern"
+            
+            # Track pattern usage and years found
+            if pattern_desc not in self.stats['year_patterns_found']:
+                self.stats['year_patterns_found'][pattern_desc] = 0
+            self.stats['year_patterns_found'][pattern_desc] += 1
+            self.stats['years_found'].add(year)
+            
+            # Generate year directory name
+            year_dir_name = self.generate_year_directory_name(year)
+            year_dir = base_dir / year_dir_name
+            
+            # Handle collisions
+            final_target, collision_status, actions = self.handle_directory_collision(dir_path, year_dir)
+            
+            if self.dry_run:
+                print(f"  [DRY RUN] Would create year directory: {year_dir_name}")
+                print(f"  [DRY RUN] Would move: {dir_path.name} → {year_dir_name}/{final_target.name}")
+                print(f"    Pattern matched: '{matched_text}' ({pattern_desc})")
+                print(f"    Collision status: {collision_status}")
+                
+                if actions:
+                    for action in actions:
+                        print(f"    Action: {action}")
+                
+                if collision_status == "merge_safe":
+                    merge_actions = self.merge_directories(dir_path, final_target)
+                    for action in merge_actions:
+                        print(f"    Merge: {action}")
+            else:
+                # Create year directory
+                year_dir.mkdir(exist_ok=True)
+                if not year_dir.exists():
+                    self.stats['created_year_directories'] += 1
+                
+                # Handle the move based on collision status
+                if collision_status == "merge_safe":
+                    # Merge directories
+                    try:
+                        merge_actions = self.merge_directories(dir_path, final_target)
+                        
+                        # Remove empty source directory
+                        try:
+                            dir_path.rmdir()
+                            print(f"  ✅ Merged: {dir_path.name} → {year_dir_name}/{final_target.name}")
+                            self.stats['merged_directories'] += 1
+                        except OSError:
+                            print(f"  ⚠️  Could not remove source directory {dir_path.name} (not empty)")
+                    except Exception as e:
+                        error_msg = f"Error merging {dir_path.name}: {e}"
+                        self.stats['errors'].append(error_msg)
+                        print(f"  ❌ {error_msg}")
+                        return False, str(e)
+                else:
+                    # Regular move
+                    try:
+                        shutil.move(str(dir_path), str(final_target))
+                        print(f"  ✅ Moved: {dir_path.name} → {year_dir_name}/{final_target.name}")
+                    except Exception as e:
+                        error_msg = f"Error moving {dir_path.name}: {e}"
+                        self.stats['errors'].append(error_msg)
+                        print(f"  ❌ {error_msg}")
+                        return False, str(e)
+                
+                print(f"    Pattern matched: '{matched_text}' ({pattern_desc})")
+                print(f"    Collision status: {collision_status}")
+                
+                if actions:
+                    for action in actions:
+                        print(f"    Action: {action}")
+            
+            self.stats['processed_directories'] += 1
+            return True, "success"
+            
+        except Exception as e:
+            error_msg = f"Error processing {dir_path.name}: {e}"
+            self.stats['errors'].append(error_msg)
+            print(f"  ❌ {error_msg}")
+            return False, str(e)
+    
+    def process_base_directory(self, source_dir: Path) -> bool:
+        """Process all directories in the specified base directory."""
+        if not source_dir.exists():
+            print(f"Error: Directory '{source_dir}' does not exist.")
+            return False
+        
+        if not source_dir.is_dir():
+            print(f"Error: '{source_dir}' is not a directory.")
+            return False
+        
+        # Determine base directory for year organization
+        base_dir = self.base_dir if self.base_dir else source_dir
+        
+        print(f"Processing directories in: {source_dir}")
+        if base_dir != source_dir:
+            print(f"Year directories will be created in: {base_dir}")
+        if self.dry_run:
+            print("DRY RUN MODE - No directories will be moved")
+        print(f"Year range: {self.year_range[0]}-{self.year_range[1]}")
+        print()
+        
+        # Get all directories (not files)
+        all_items = [item for item in source_dir.iterdir()]
+        directories = [item for item in all_items if item.is_dir()]
+        
+        self.stats['total_directories'] = len(directories)
+        
+        if not directories:
+            print("No directories found to process.")
+            return True
+        
+        print(f"Found {len(directories)} directories to process:")
+        
+        # Process each directory
+        for i, dir_path in enumerate(directories, 1):
+            print(f"[{i}/{len(directories)}] Processing: {dir_path.name}")
+            success, message = self.process_directory(dir_path, base_dir)
+            
+            if not success:
+                self.stats['skipped_directories'] += 1
+        
+        # Print summary
+        self.print_summary()
+        return True
+    
+    def print_summary(self) -> None:
+        """Print processing summary and statistics."""
+        print("\n" + "=" * 60)
+        print("PROCESSING SUMMARY")
+        print("=" * 60)
+        
+        print(f"Total directories found: {self.stats['total_directories']}")
+        
+        if self.dry_run:
+            print(f"Directories that would be processed: {self.stats['processed_directories']}")
+            print(f"Year directories that would be created: {self.stats['created_year_directories']}")
+            print(f"Directories that would be merged: {self.stats['merged_directories']}")
+        else:
+            print(f"Directories successfully processed: {self.stats['processed_directories']}")
+            print(f"Year directories created: {self.stats['created_year_directories']}")
+            print(f"Directories merged: {self.stats['merged_directories']}")
+        
+        print(f"Directories skipped: {self.stats['skipped_directories']}")
+        print(f"Errors encountered: {len(self.stats['errors'])}")
+        
+        # Year statistics
+        if self.stats['years_found']:
+            years_list = sorted(self.stats['years_found'])
+            print(f"\nYears detected: {', '.join(map(str, years_list))}")
+            print(f"Year range: {min(years_list)}-{max(years_list)}")
+        
+        # Pattern statistics
+        if self.stats['year_patterns_found']:
+            print("\nYear Patterns Detected:")
+            for pattern, count in sorted(self.stats['year_patterns_found'].items()):
+                print(f"  {pattern}: {count} directories")
+        
+        if self.stats['errors']:
+            print("\nErrors:")
+            for error in self.stats['errors']:
+                print(f"  - {error}")
+        
+        if len(self.stats['errors']) == 0 and self.stats['processed_directories'] > 0:
+            print("\n🎉 Year organization completed successfully!")
+        elif len(self.stats['errors']) > 0:
+            print("\n⚠️  Year organization completed with errors.")
+        else:
+            print("\n⚪ No directories were processed.")
+
+
+def main():
+    """Main function with argument parsing and execution."""
+    parser = argparse.ArgumentParser(
+        description="Plex Year Organizer - Organize directories by year",
+        epilog="""
+Examples:
+  %(prog)s /path/to/media                       # Organize directories by year (interactive)
+  %(prog)s /path/to/media --dry-run             # Preview changes
+  %(prog)s /path/to/media -y                    # Organize without confirmation
+  %(prog)s /path/to/media --base /organized     # Create year dirs in different location
+  %(prog)s /path/to/media --year-range 1980 2025 # Custom year range
+  %(prog)s /path/to/media --force               # Force run (bypass lock)
+  
+Cron Usage:
+  # Run daily at 2 AM (non-interactive)
+  0 2 * * * /usr/local/bin/plex_make_years /path/to/downloads -y
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    
+    parser.add_argument(
+        'directory',
+        help='Directory containing directories to organize by year'
+    )
+    parser.add_argument(
+        '--base',
+        metavar='DIR',
+        help='Base directory for year organization (default: same as source)'
+    )
+    parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Show what would be done without making changes'
+    )
+    parser.add_argument(
+        '--force',
+        action='store_true',
+        help='Force execution even if another instance is running'
+    )
+    
+    parser.add_argument(
+        '-y', '--yes',
+        action='store_true',
+        help='Skip confirmation prompts (for non-interactive use)'
+    )
+    parser.add_argument(
+        '--year-range',
+        nargs=2,
+        type=int,
+        metavar=('START', 'END'),
+        default=[1900, 2030],
+        help='Valid year range (default: 1900-2030)'
+    )
+    parser.add_argument(
+        '--list-patterns',
+        action='store_true',
+        help='List all supported year detection patterns and exit'
+    )
+    parser.add_argument(
+        '--version',
+        action='version',
+        version='%(prog)s 2.1.0'
+    )
+    
+    args = parser.parse_args()
+    
+    # Handle --list-patterns
+    if args.list_patterns:
+        organizer = YearOrganizer()
+        print("Supported year detection patterns:")
+        for pattern, description in organizer.year_patterns:
+            print(f"  {description}: {pattern}")
+        print("\nExample matches:")
+        examples = [
+            "Movie.Title.(2023)",
+            "Another.Movie.[2022]",
+            "Show.2021.Season.1",
+            "Film.Title.2020.1080p",
+            "2019.Movie.Title",
+            "Movie_2018_BluRay"
+        ]
+        for example in examples:
+            year, pattern_desc, matched = organizer.extract_year_info(example)
+            if year:
+                print(f"  '{example}' → {year} ({pattern_desc})")
+        sys.exit(0)
+    
+    # Validate arguments
+    if args.yes and args.dry_run:
+        print("Warning: -y/--yes flag has no effect in dry-run mode", file=sys.stderr)
+    
+    # Validate year range
+    if args.year_range[0] >= args.year_range[1]:
+        print("Error: Start year must be less than end year.")
+        sys.exit(1)
+    
+    # Create organizer instance
+    base_dir = Path(args.base).resolve() if args.base else None
+    organizer = YearOrganizer(
+        dry_run=args.dry_run,
+        force=args.force,
+        base_dir=base_dir,
+        year_range=tuple(args.year_range)
+    )
+    
+    # Confirmation logic for non-interactive environments
+    if not args.dry_run:
+        source_dir = Path(args.directory).resolve()
+        if not args.yes and not is_non_interactive():
+            print(f"About to organize directories by year in: {source_dir}")
+            if base_dir and base_dir != source_dir:
+                print(f"Year directories will be created in: {base_dir}")
+            print(f"Year range: {args.year_range[0]}-{args.year_range[1]}")
+            
+            response = input("\nProceed with directory organization? [y/N]: ")
+            if response.lower() not in ['y', 'yes']:
+                print("Operation cancelled.")
+                sys.exit(0)
+        elif args.yes or is_non_interactive():
+            print(f"Proceeding with directory organization in: {source_dir}")
+            if base_dir and base_dir != source_dir:
+                print(f"Year directories will be created in: {base_dir}")
+    
+    try:
+        # Acquire lock
+        if not organizer.acquire_lock():
+            sys.exit(1)
+        
+        # Process directory
+        source_dir = Path(args.directory).resolve()
+        success = organizer.process_base_directory(source_dir)
+        
+        sys.exit(0 if success else 1)
+        
+    except KeyboardInterrupt:
+        print("\nOperation cancelled by user.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    finally:
+        organizer.release_lock()
+
+
+if __name__ == '__main__':
+    main()
