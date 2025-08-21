@@ -4,7 +4,7 @@ Utilities for organizing and maintaining media libraries optimized for Plex Medi
 
 ## Overview
 
-This directory contains self-contained Python and bash tools designed to help you organize your media files according to Plex's naming conventions and directory structures. The tools ensure optimal recognition and metadata matching for your Plex Media Server.
+This directory contains self-contained Python tools designed to help you organize your media files according to Plex's naming conventions and directory structures. The tools ensure optimal recognition and metadata matching for your Plex Media Server.
 
 ## Features
 
@@ -18,29 +18,32 @@ This directory contains self-contained Python and bash tools designed to help yo
 
 ## Installation
 
-These tools require Python 3.6+ for Python scripts. Bash scripts work with standard Unix shells.
+These tools require Python 3.6+ and use only standard library modules.
 
 ```bash
 # Make scripts executable
 chmod +x plex_*
 
-# Run Python tools directly
+# Run tools directly
 ./plex_move_movie_extras --help
-
-# Run bash tools
 ./plex_make_seasons --help
+./plex_correct_dirs --help
 ```
 
-## Tools overview
+## Available Tools
 
 ### Directory Organization Tools
 
-#### `plex_make_dirs`
+#### `plex_make_dirs` (Python)
 Creates proper directory structures for media libraries.
 - Organizes media files into appropriate folder hierarchies
 - Ensures Plex-compatible directory naming
+- Safe preview mode with comprehensive validation
+- Automation-friendly with `-y` flag support
 
-#### `plex_correct_dirs`
+**Documentation**: [docs/plex_make_dirs.md](docs/plex_make_dirs.md)
+
+#### `plex_correct_dirs` (Python)
 Sanitizes and corrects directory names for Plex compatibility.
 - Removes unwanted release group tags (YTS, RARBG, YIFY, etc.)
 - Properly formats resolutions (1080p, 2160p) in brackets
@@ -49,19 +52,39 @@ Sanitizes and corrects directory names for Plex compatibility.
 - Removes video source tags (BluRay, WEBRip, etc.)
 - Cleans up audio format tags (5.1, DTS, AC3, etc.)
 
+**Documentation**: [docs/plex_correct_dirs.md](docs/plex_correct_dirs.md)
+
 ### TV Show Organization
 
-#### `plex_make_seasons`
+#### `plex_make_seasons` (Python)
 Organizes TV show episodes into proper season directories.
 - Detects episode patterns (S01E01, etc.)
 - Creates season folders automatically
 - Moves episodes to appropriate season directories
-- Supports dry-run mode for safe testing
+- Comprehensive safety features and dry-run mode
+- Automation support with file locking
 
-#### `plex_make_all_seasons`
+**Documentation**: [docs/plex_make_seasons.md](docs/plex_make_seasons.md)
+
+#### `plex_make_all_seasons` (Python)
 Batch processes multiple TV shows for season organization.
 - Processes entire directories of TV shows
 - Applies season organization across multiple series
+- Progress indicators and concurrent processing
+- Built-in error recovery and reporting
+
+**Documentation**: [docs/plex_make_all_seasons.md](docs/plex_make_all_seasons.md)
+
+### Year-Based Organization
+
+#### `plex_make_years` (Python)
+Organizes movies into year-based directory structures.
+- Creates year folders (2020, 2021, etc.)
+- Moves movies to appropriate year directories
+- Extracts year information from filenames
+- Safe preview mode and automation support
+
+**Documentation**: [docs/plex_make_years.md](docs/plex_make_years.md)
 
 ### Movie Organization
 
@@ -88,16 +111,6 @@ Renames movie featurettes and extras within subdirectories according to Plex nam
 - **File locking**: Prevents multiple instances from running simultaneously
 
 **Documentation**: [docs/plex_movie_subdir_renamer.md](docs/plex_movie_subdir_renamer.md)
-
-
-
-### Year Organization
-
-#### `plex_make_years`
-Organizes movies into year-based directory structures.
-- Creates year folders (2020, 2021, etc.)
-- Moves movies to appropriate year directories
-- Extracts year information from filenames
 
 ## Usage
 
@@ -191,24 +204,27 @@ TV Shows/
 - **Backup recommendations**: Always backup your media before bulk operations
 - **Permission handling**: Graceful handling of permission issues
 
-## Technical details
+## Technical Details
 
-### Migration status
+### Self-Contained Python Tools
+All Plex tools are complete Python implementations using only standard library modules:
 
-**Completed Python tools:**
-- `plex_move_movie_extras` - Movie extras organization
-- `plex_movie_subdir_renamer` - Movie subdirectory renaming
+- **Zero dependencies**: No external libraries required
+- **Portable execution**: Download and run anywhere with Python 3.6+
+- **Consistent interface**: Standardized CLI arguments across all tools
+- **Enhanced safety**: Comprehensive dry-run modes and validation
+- **Automation ready**: Built-in support for cron jobs and scripting
 
-**Bash tools (pending migration):**
-- Directory and TV show organization tools will be converted following the project coding standards
+### Standard Features
+All tools include these standard features:
 
-### Python tool features
-
-- Standardized `--verbose`, `--debug`, `--dry-run` options
-- Progress indicators for large operations
-- Better error reporting and recovery
-- File locking to prevent concurrent execution
-- Automation-friendly with `-y` flag
+- **Safe defaults**: Preview mode by default, require explicit execution
+- **Comprehensive options**: `--verbose`, `--debug`, `--dry-run`/`--execute` flags
+- **Progress indicators**: Visual feedback for large operations
+- **Error recovery**: Graceful handling of permission and file system errors
+- **File locking**: Prevents concurrent execution conflicts
+- **Automation support**: `-y` flag for non-interactive operation
+- **Non-interactive detection**: Automatic cron-friendly behavior
 
 ## Troubleshooting
 
@@ -233,6 +249,12 @@ sudo -u plex ./script_name
 
 ## Documentation
 
+### Tool-Specific Documentation
+- [docs/plex_correct_dirs.md](docs/plex_correct_dirs.md) - Directory name sanitization
+- [docs/plex_make_dirs.md](docs/plex_make_dirs.md) - Directory structure creation  
+- [docs/plex_make_seasons.md](docs/plex_make_seasons.md) - TV show season organization
+- [docs/plex_make_all_seasons.md](docs/plex_make_all_seasons.md) - Batch season processing
+- [docs/plex_make_years.md](docs/plex_make_years.md) - Year-based movie organization
 - [docs/plex_move_movie_extras.md](docs/plex_move_movie_extras.md) - Movie extras organization
 - [docs/plex_movie_subdir_renamer.md](docs/plex_movie_subdir_renamer.md) - Movie subdirectory renaming
 
