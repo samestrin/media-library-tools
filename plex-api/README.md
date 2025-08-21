@@ -43,11 +43,17 @@ chmod +x plex_server_episode_refresh
 
 ### Basic usage
 ```bash
-# Refresh episode thumbnails for a show
-./plex_server_episode_refresh --server http://localhost:32400 --token YOUR_TOKEN "Show Name"
+# Refresh episode thumbnails using episode ID
+./plex_server_episode_refresh 12345 --server http://localhost:32400 --token YOUR_TOKEN
 
 # Use environment variable for token
-PLEX_TOKEN=YOUR_TOKEN ./plex_server_episode_refresh --server http://localhost:32400 "Show Name"
+PLEX_TOKEN=YOUR_TOKEN ./plex_server_episode_refresh 12345 --server http://localhost:32400
+
+# Show verbose output
+./plex_server_episode_refresh 12345 --verbose
+
+# Show debug information
+./plex_server_episode_refresh 12345 --debug
 ```
 
 ### Authentication
@@ -65,6 +71,34 @@ Tools require a Plex authentication token, provided via:
 - **Error handling**: Graceful handling of API errors and network issues
 - **Non-destructive**: No file system modifications, only API calls
 
+## Technical Details
+
+- **Python version**: 3.6 or higher
+- **Dependencies**: Standard library only
+- **Platform**: Cross-platform (Linux, macOS, Windows)
+- **Network**: Requires HTTP(S) access to Plex Media Server
+
+## Troubleshooting
+
+### Authentication issues
+- Verify your Plex token is valid and has appropriate permissions
+- Check that the server URL is accessible from your machine
+- Ensure the Plex Media Server is running and responsive
+
+### Network connectivity
+- Test server accessibility: `curl http://your-plex-server:32400/identity`
+- Check firewall settings if using remote server
+- Verify port forwarding configuration for external access
+
+### API errors
+- Use `--debug` flag to see detailed API communication
+- Check Plex server logs for additional error information
+- Verify episode ID exists and is accessible
+
 ## Documentation
 
 - [docs/plex_server_episode_refresh.md](docs/plex_server_episode_refresh.md) - Episode thumbnail refresh tool
+
+## Version History
+
+- **v1.0**: Initial release with episode thumbnail refresh functionality
