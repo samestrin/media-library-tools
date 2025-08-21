@@ -49,26 +49,81 @@ chmod +x sabnzbd_cleanup
 ./sabnzbd_cleanup --version
 ```
 
-### Automation support
+### Command Line Options
+
+```bash
+./sabnzbd_cleanup [path] [options]
+
+Positional Arguments:
+  path                  Directory to search (default: current directory)
+
+Options:
+  --delete              Actually delete found directories (default: list only)
+  --prune-at SIZE       Auto-delete when total size exceeds threshold (e.g., 50G, 2T)
+  -y, --yes             Skip confirmation prompt (for non-interactive use)
+  --verbose, -v         Show verbose output
+  --debug               Show detailed debug output for all directories
+  --force               Force execution even if another instance is running
+  --version             Show version information
+  --help, -h            Show help message
+```
+
+### Examples
+
+#### Basic usage
+```bash
+# List SABnzbd directories (safe preview)
+./sabnzbd_cleanup /downloads
+
+# Show verbose details about detection
+./sabnzbd_cleanup /downloads --verbose
+
+# Show debug info for ALL directories
+./sabnzbd_cleanup /downloads --debug
+
+# Actually delete directories (with confirmation)
+./sabnzbd_cleanup /downloads --delete
+
+# Non-interactive deletion for automation
+./sabnzbd_cleanup /downloads --delete -y
+
+# Auto-prune when total size exceeds threshold
+./sabnzbd_cleanup /downloads --prune-at 50G
+```
+
+#### Automation scenarios
+```bash
+# Force execution even if another instance is running
+./sabnzbd_cleanup /downloads --delete --force
+
+# Combine options for automated cleanup with size threshold
+./sabnzbd_cleanup /downloads --delete --prune-at 100G -y
+```
+
+## Automation Support
 
 The script is designed to work seamlessly with cron for automated cleanup:
 
 ```bash
-# Add to crontab for hourly cleanup
-0 * * * * /path/to/sabnzbd_cleanup /downloads --delete
+# Add to crontab for hourly cleanup (non-interactive)
+0 * * * * /path/to/sabnzbd_cleanup /downloads --delete -y
 
 # Daily cleanup at 3 AM
-0 3 * * * /path/to/sabnzbd_cleanup /downloads --delete
+0 3 * * * /path/to/sabnzbd_cleanup /downloads --delete -y
 
-# Weekly cleanup on Sundays at 2 AM
-0 2 * * 0 /path/to/sabnzbd_cleanup /downloads --delete
+# Weekly cleanup on Sundays at 2 AM with size threshold
+0 2 * * 0 /path/to/sabnzbd_cleanup /downloads --prune-at 50G
+
+# Auto-prune when downloads exceed 100GB, check every 6 hours
+0 */6 * * * /path/to/sabnzbd_cleanup /downloads --prune-at 100G
 ```
 
-**Cron features:**
-- Automatically proceeds with deletion in non-interactive mode
+**Automation features:**
+- Automatically detects non-interactive environments (cron, CI, SSH without TTY)
 - Uses file locking to prevent overlapping executions
-- Minimal output unless errors occur
-- Proper exit codes for monitoring
+- Supports `-y` flag to skip confirmation prompts
+- Provides proper exit codes for monitoring systems
+- Includes `--prune-at` for threshold-based automatic cleanup
 
 ## Output format
 ```
@@ -146,3 +201,54 @@ The script uses a scoring system to identify SABnzbd directories:
 - You want to clean up failed/incomplete Usenet downloads
 - Your download directory contains both Usenet and BitTorrent files
 - You need to free up space but want to preserve legitimate downloads
+
+## Troubleshooting
+
+### Permission denied errors
+```bash
+# Check directory permissions
+ls -la /path/to/downloads
+
+# Run with appropriate user permissions
+sudo -u sabnzbd ./sabnzbd_cleanup /downloads
+
+# Or ensure your user has access to the directory
+chmod 755 /path/to/downloads
+```
+
+### No directories found
+- Verify the path is correct and exists
+- Use `--debug` to see detailed analysis of all directories
+- Check if SABnzbd is using a different temporary directory structure
+- Ensure you have read permissions on the directory
+
+### False positives/negatives
+- Use `--debug` to see scoring details for each directory
+- Review the detection algorithm scoring in the output
+- Report issues with specific directory examples for algorithm improvement
+- Consider using `--verbose` for intermediate detail level
+
+### File locking issues
+```bash
+# If script reports another instance is running:
+# 1. Check if another instance is actually running
+ps aux | grep sabnzbd_cleanup
+
+# 2. Remove stale lock file if needed (use with caution)
+rm /tmp/sabnzbd_cleanup.lock
+
+# 3. Or force execution
+./sabnzbd_cleanup /downloads --delete --force
+```
+
+### Large directory scans
+- Use `--verbose` to see progress indicators
+- Consider processing subdirectories individually for very large trees
+- Monitor system resources during large scans
+
+## Version History
+
+- **v2.2**: Added `--prune-at` threshold feature, improved automation support with `-y` flag
+- **v2.1**: Enhanced scoring system, added file locking, improved cron compatibility
+- **v2.0**: Complete Python rewrite from original bash script with advanced detection algorithms
+- **v1.x**: Original bash implementation with basic pattern matching

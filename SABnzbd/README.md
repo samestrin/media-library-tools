@@ -55,17 +55,17 @@ chmod +x sabnzbd_cleanup
 ### Command line options
 
 ```bash
-./sabnzbd_cleanup [directory] [options]
+./sabnzbd_cleanup [path] [options]
 
 Positional Arguments:
-  directory             Directory to scan (default: current directory)
+  path                  Directory to search (default: current directory)
 
 Options:
-  --delete              Actually delete identified directories (default: list only)
-  --prune-at SIZE       Delete directories when total size exceeds threshold (e.g., 50G, 1T)
-  -y, --yes             Skip confirmation prompts (for automation/cron)
-  --verbose, -v         Show detailed output
-  --debug               Show debug information including scoring details
+  --delete              Actually delete found directories (default: list only)
+  --prune-at SIZE       Auto-delete when total size exceeds threshold (e.g., 50G, 2T)
+  -y, --yes             Skip confirmation prompt (for non-interactive use)
+  --verbose, -v         Show verbose output
+  --debug               Show detailed debug output for all directories
   --force               Force execution even if another instance is running
   --version             Show version information
   --help, -h            Show help message
