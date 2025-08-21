@@ -1,0 +1,16 @@
+# Media Library Tools - Runtime Dependencies
+# 
+# This project is designed to be completely self-contained with ZERO external dependencies.
+# All tools use only Python standard library modules to ensure:
+# - No installation or setup required
+# - Maximum compatibility across Python environments
+# - Zero dependency conflicts
+# - Immediate usability after download
+#
+# Runtime Requirements:
+# - Python 3.7+ (uses standard library only)
+#
+# This file serves as explicit documentation of our zero-dependency principle
+# and helps with future-proofing and developer expectations.
+#
+# For development dependencies (linting, formatting, testing), see pyproject.toml

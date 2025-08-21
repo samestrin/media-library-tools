@@ -300,11 +300,30 @@ Use the `-y` or `--yes` flag to skip confirmation prompts:
 | Project Documentation | ✅ Complete | Markdown | Comprehensive and specification-compliant |
 | Test Coverage | ✅ Complete | Python | Comprehensive fixture-based testing |
 
+### Configuration Management
+
+This project follows a **self-contained, dependency-free** approach to configuration:
+
+- **Command-line arguments**: Primary configuration method for all tools
+- **Environment variables**: Used only for sensitive credentials (API keys, tokens)
+- **No configuration files**: Maintains portability and zero-dependency principle
+- **Embedded defaults**: All configuration options built into each script
+
+**Sensitive Data Handling:**
+```bash
+# Use .env file for API credentials only (not tracked in git)
+export PLEX_TOKEN="your-token-here"
+export PLEX_URL="http://your-server:32400"
+
+# All other configuration via command-line arguments
+./plex_server_episode_refresh --library "TV Shows" --verbose
+```
+
 ### Future enhancements
-- **Built-in configuration**: Embedded config options (no external files)
 - **Batch processing**: Process multiple directories efficiently
 - **Self-testing**: Built-in `--test` modes for validation
 - **Enhanced portability**: Even better cross-platform compatibility
+- **Extended automation**: More cron-friendly features and scheduling options
 
 ## Support
 
