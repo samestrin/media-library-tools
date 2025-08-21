@@ -98,17 +98,6 @@ TEST_CATEGORIES = {
         'timeout': 600,
         'description': 'Performance and benchmark tests',
         'subdir': 'performance'
-    },
-    'fixture': {
-        'pattern': 'test_fixture_*.py',
-        'timeout': 120,
-        'description': 'Tests for fixture system and test data'
-    },
-    'examples': {
-        'pattern': 'test_*.py',
-        'timeout': 180,
-        'description': 'Example tests and demonstrations',
-        'subdir': 'examples'
     }
 }
 

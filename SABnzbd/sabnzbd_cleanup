@@ -266,12 +266,20 @@ class SABnzbdDetector:
         return sabnzbd_dirs
 
 def get_dir_size(path: Path) -> int:
-    """Get directory size in bytes"""
+    """Get directory size in bytes using cross-platform Python approach"""
     try:
-        result = subprocess.run(['du', '-sb', str(path)], 
-                              capture_output=True, text=True, check=True)
-        return int(result.stdout.split()[0])
-    except:
+        total_size = 0
+        for dirpath, dirnames, filenames in os.walk(path):
+            for filename in filenames:
+                try:
+                    file_path = os.path.join(dirpath, filename)
+                    # Use lstat to avoid following symlinks
+                    total_size += os.lstat(file_path).st_size
+                except (OSError, FileNotFoundError):
+                    # Skip files that can't be accessed
+                    continue
+        return total_size
+    except (OSError, PermissionError):
         return 0
 
 def bytes_to_human(bytes_val: int) -> str:
@@ -465,14 +473,14 @@ def calculate_sizes(sabnzbd_dirs: List[Tuple[Path, int]]) -> Tuple[int, List[Tup
     total_bytes = 0
     dir_info = []
     
-    print(\"Calculating sizes...\")
+    print("Calculating sizes...")
     for i, (dir_path, score) in enumerate(sabnzbd_dirs, 1):
         size = get_dir_size(dir_path)
         total_bytes += size
         dir_info.append((dir_path, size, score))
-        print(f\"\rCalculating sizes... {i}/{len(sabnzbd_dirs)}\", end='')
+        print(f"\rCalculating sizes... {i}/{len(sabnzbd_dirs)}", end='')
         
-    print(\"\rCalculating sizes... Complete!\")
+    print("\rCalculating sizes... Complete!")
     print()
     
     return total_bytes, dir_info
@@ -510,49 +518,49 @@ def handle_prune_at(args: argparse.Namespace, total_bytes: int, size_threshold_b
         True if pruning was handled, False otherwise
     """
     if total_bytes > size_threshold_bytes:
-        print(f\"Total size ({bytes_to_human(total_bytes)}) exceeds threshold ({bytes_to_human(size_threshold_bytes)})\")
-        print(\"Auto-pruning enabled - proceeding with deletion...\")
-        print(\"WARNING: This will permanently delete these directories!\")
+        print(f"Total size ({bytes_to_human(total_bytes)}) exceeds threshold ({bytes_to_human(size_threshold_bytes)})")
+        print("Auto-pruning enabled - proceeding with deletion...")
+        print("WARNING: This will permanently delete these directories!")
         
         # Handle confirmation for prune-at
         if not args.yes and not is_non_interactive():
             try:
-                response = input(\"Do you want to proceed with auto-pruning? [y/N]: \")
+                response = input("Do you want to proceed with auto-pruning? [y/N]: ")
             except (EOFError, KeyboardInterrupt):
-                print(\"\nAuto-pruning cancelled.\")
+                print("\nAuto-pruning cancelled.")
                 sys.exit(1)
             
             if response.lower() not in ['y', 'yes']:
-                print(\"Auto-pruning cancelled.\")
+                print("Auto-pruning cancelled.")
                 sys.exit(0)
         else:
             if args.yes:
-                print(\"Proceeding with auto-pruning (--yes flag)...\")
+                print("Proceeding with auto-pruning (--yes flag)...")
             else:
-                print(\"Proceeding with auto-pruning (non-interactive environment)...\")
+                print("Proceeding with auto-pruning (non-interactive environment)...")
         
         # Perform deletion
-        print(\"\nDeleting directories...\")
+        print("\nDeleting directories...")
         deleted = 0
         freed = 0
         
         for dir_path, size, _ in dir_info:
             try:
-                print(f\"  Deleting: {dir_path.name} ({bytes_to_human(size)})\")
+                print(f"  Deleting: {dir_path.name} ({bytes_to_human(size)})")
                 shutil.rmtree(dir_path)
-                print(f\"    ✅ Deleted successfully\")
+                print(f"    ✅ Deleted successfully")
                 deleted += 1
                 freed += size
             except Exception as e:
-                print(f\"    ❌ Failed: {e}\", file=sys.stderr)
+                print(f"    ❌ Failed: {e}", file=sys.stderr)
                 
         print()
-        print(f\"Auto-pruned {deleted}/{len(dir_info)} directories\")
-        print(f\"Space freed: {bytes_to_human(freed)}\")
+        print(f"Auto-pruned {deleted}/{len(dir_info)} directories")
+        print(f"Space freed: {bytes_to_human(freed)}")
         return True
     else:
-        print(f\"Total size ({bytes_to_human(total_bytes)}) is below threshold ({bytes_to_human(size_threshold_bytes)})\")
-        print(\"No pruning needed.\")
+        print(f"Total size ({bytes_to_human(total_bytes)}) is below threshold ({bytes_to_human(size_threshold_bytes)})")
+        print("No pruning needed.")
         return False
 
 def handle_delete(args: argparse.Namespace, dir_info: List[Tuple[Path, int, int]]) -> bool:
@@ -565,50 +573,50 @@ def handle_delete(args: argparse.Namespace, dir_info: List[Tuple[Path, int, int]
     Returns:
         True if deletion was confirmed and handled, False if cancelled
     """
-    print(\"WARNING: This will permanently delete these directories!\")
+    print("WARNING: This will permanently delete these directories!")
     
     # Handle confirmation based on flags and environment
     if args.yes or is_non_interactive():
         response = 'yes'
         if args.yes:
-            print(\"Proceeding with deletion (--yes flag)...\")
+            print("Proceeding with deletion (--yes flag)...")
         else:
-            print(\"Proceeding with deletion (non-interactive environment)...\")
+            print("Proceeding with deletion (non-interactive environment)...")
     else:
         try:
-            response = input(\"Are you sure? [y/N]: \")
+            response = input("Are you sure? [y/N]: ")
         except (EOFError, KeyboardInterrupt):
-            print(\"\nDeletion cancelled.\")
+            print("\nDeletion cancelled.")
             sys.exit(1)
     
     if response.lower() in ['y', 'yes']:
-        print(\"\nDeleting directories...\")
+        print("\nDeleting directories...")
         deleted = 0
         freed = 0
         
         for dir_path, size, _ in dir_info:
             try:
-                print(f\"  Deleting: {dir_path.name} ({bytes_to_human(size)})\")
+                print(f"  Deleting: {dir_path.name} ({bytes_to_human(size)})")
                 shutil.rmtree(dir_path)
-                print(f\"    ✅ Deleted successfully\")
+                print(f"    ✅ Deleted successfully")
                 deleted += 1
                 freed += size
             except Exception as e:
-                print(f\"    ❌ Failed: {e}\", file=sys.stderr)
+                print(f"    ❌ Failed: {e}", file=sys.stderr)
                 
         print()
-        print(f\"Deleted {deleted}/{len(dir_info)} directories\")
-        print(f\"Space freed: {bytes_to_human(freed)}\")
+        print(f"Deleted {deleted}/{len(dir_info)} directories")
+        print(f"Space freed: {bytes_to_human(freed)}")
         return True
     else:
-        print(\"Deletion cancelled.\")
+        print("Deletion cancelled.")
         return False
 
 def main():
     parser = argparse.ArgumentParser(
         description=f'SABnzbd Directory Cleanup Script v{VERSION}',
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=\"\"\"
+        epilog="""
 Examples:
   %(prog)s /downloads                    # List SABnzbd dirs in /downloads
   %(prog)s /downloads --delete           # Delete SABnzbd dirs (interactive)
@@ -623,7 +631,7 @@ Cron Usage:
   
   # Auto-prune when downloads exceed 100GB
   0 */6 * * * /path/to/sabnzbd_cleanup /downloads --prune-at 100G
-        \"\"\"
+        """
     )
     
     parser.add_argument('path', nargs='?', default='.',
@@ -656,11 +664,11 @@ Cron Usage:
         search_path = Path(args.path).resolve()
         
         if not search_path.exists():
-            print(f\"Error: Directory '{search_path}' does not exist\", file=sys.stderr)
+            print(f"Error: Directory '{search_path}' does not exist", file=sys.stderr)
             sys.exit(1)
             
         if not search_path.is_dir():
-            print(f\"Error: '{search_path}' is not a directory\", file=sys.stderr)
+            print(f"Error: '{search_path}' is not a directory", file=sys.stderr)
             sys.exit(1)
             
         # Print header
@@ -673,19 +681,19 @@ Cron Usage:
         
         if not sabnzbd_dirs:
             if args.verbose:
-                print(\"No SABnzbd directories found.\")
-                print(\"\nPossible reasons:\")
-                print(\"  - No SABnzbd temporary files in this location\")
-                print(\"  - All downloads completed successfully\")
-                print(\"  - SABnzbd directories were already cleaned up\")
-                print(\"\nTry --verbose or --debug for more details\")
+                print("No SABnzbd directories found.")
+                print("\nPossible reasons:")
+                print("  - No SABnzbd temporary files in this location")
+                print("  - All downloads completed successfully")
+                print("  - SABnzbd directories were already cleaned up")
+                print("\nTry --verbose or --debug for more details")
             sys.exit(0)
             
         # Sort by score (highest first) for display
         sabnzbd_dirs.sort(key=lambda x: x[1], reverse=True)
         
-        print(f\"Found {len(sabnzbd_dirs)} SABnzbd directories:\")
-        print(\"=\" * 50)
+        print(f"Found {len(sabnzbd_dirs)} SABnzbd directories:")
+        print("=" * 50)
         print()
         
         # Calculate sizes
@@ -694,7 +702,7 @@ Cron Usage:
         # Display results
         display_results(args, sabnzbd_dirs, dir_info)
         
-        print(f\"Total: {bytes_to_human(total_bytes)} across {len(sabnzbd_dirs)} directories\")
+        print(f"Total: {bytes_to_human(total_bytes)} across {len(sabnzbd_dirs)} directories")
         print()
         
         # Handle --prune-at logic
@@ -703,8 +711,8 @@ Cron Usage:
         elif args.delete:
             handled = handle_delete(args, dir_info)
         else:
-            print(\"To delete these directories, run with --delete\")
-            print(\"Recommendation: Stop SABnzbd before deleting\")
+            print("To delete these directories, run with --delete")
+            print("Recommendation: Stop SABnzbd before deleting")
     
     finally:
         # Always release the lock

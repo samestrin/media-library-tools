@@ -113,20 +113,37 @@ class FixtureManager:
         Args:
             base_path: Base directory to create structure in
             structure: Structure definition dictionary
+                     Supports two formats:
+                     1. Legacy format: {'files': [...], 'directories': {...}}
+                     2. Simple format: {'filename.ext': 'file', 'dirname': {...}}
         """
-        # Create files
+        # Handle legacy format
         if 'files' in structure:
             for filename in structure['files']:
                 file_path = base_path / filename
                 file_path.touch()
         
-        # Create directories
         if 'directories' in structure:
             for dirname, substructure in structure['directories'].items():
                 dir_path = base_path / dirname
                 dir_path.mkdir(exist_ok=True)
                 if substructure:
                     self._create_structure(dir_path, substructure)
+        else:
+            # Handle simple format
+            for name, value in structure.items():
+                if name in ['files', 'directories']:
+                    continue  # Skip legacy keys
+                
+                if value == 'file':
+                    # Create file
+                    file_path = base_path / name
+                    file_path.touch()
+                elif isinstance(value, dict):
+                    # Create directory and recurse
+                    dir_path = base_path / name
+                    dir_path.mkdir(exist_ok=True)
+                    self._create_structure(dir_path, value)
     
     def assert_directory_structure(self, path: Path, expected: Dict[str, Any]) -> None:
         """Assert directory matches expected structure.
@@ -195,15 +212,16 @@ class FixtureManager:
         """
         directory.mkdir(parents=True, exist_ok=True)
         
-        # Common SABnzbd indicators
+        # Common SABnzbd indicators (matching existing fixtures)
         indicators = [
-            '.nzb',
-            'movie.nfo',
-            'movie.r00',
-            'movie.r01',
-            '_UNPACK_movie/',
-            'SABnzbd_nzo_12345',
-            '.tmp'
+            'SABnzbd_nzo',      # SABnzbd download indicator
+            'SABnzbd_nzb',      # SABnzbd NZB file indicator
+            '.nzb',             # NZB file
+            'movie.nfo',        # NFO file
+            'movie.r00',        # RAR part file
+            'movie.r01',        # RAR part file
+            '_UNPACK_movie/',   # Unpacking directory
+            '.tmp'              # Temp file
         ]
         
         for indicator in indicators:

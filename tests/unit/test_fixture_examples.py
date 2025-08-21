@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 # Add utils to path
-sys.path.insert(0, str(Path(__file__).parent / 'utils'))
+sys.path.insert(0, str(Path(__file__).parent.parent / 'utils'))
 
 # Try to import test helpers, handle import errors gracefully
 try:
@@ -85,9 +85,9 @@ class TestFixtureExamples(MediaLibraryTestCase):
             self.assert_video_file(test_dir / extra_file)
         
         # Count total video files
-        self.assert_file_count(test_dir, 5, '*.mp4')
-        self.assert_file_count(test_dir, 2, '*.mkv')
-        self.assert_file_count(test_dir, 1, '*.avi')
+        self.assert_file_count(test_dir, 2, '*.mp4')  # behind_the_scenes.mp4, trailer.mp4
+        self.assert_file_count(test_dir, 2, '*.mkv')  # Epic Movie (2023).mkv, deleted_scene_01.mkv
+        self.assert_file_count(test_dir, 1, '*.avi')  # director_interview.avi
     
     @unittest.skipIf(MediaLibraryTestCase is unittest.TestCase, "Test helpers not available")
     def test_plex_tv_unorganized_episodes_fixture(self):
@@ -127,7 +127,7 @@ class TestFixtureExamples(MediaLibraryTestCase):
     def test_dynamic_sabnzbd_fixture_creation(self):
         """Test creating a dynamic SABnzbd fixture."""
         # Create a temporary directory for the fixture
-        temp_dir = self.fixture_manager.get_test_data_dir() / 'dynamic_sabnzbd'
+        temp_dir = self.fixture_manager.test_data_dir / 'dynamic_sabnzbd'
         temp_dir.mkdir(parents=True, exist_ok=True)
         self.test_dirs.append(temp_dir)
         
@@ -146,7 +146,7 @@ class TestFixtureExamples(MediaLibraryTestCase):
     def test_dynamic_plex_movie_fixture_creation(self):
         """Test creating a dynamic Plex movie fixture."""
         # Create a temporary directory for the fixture
-        temp_dir = self.fixture_manager.get_test_data_dir() / 'dynamic_movie'
+        temp_dir = self.fixture_manager.test_data_dir / 'dynamic_movie'
         temp_dir.mkdir(parents=True, exist_ok=True)
         self.test_dirs.append(temp_dir)
         
@@ -165,7 +165,7 @@ class TestFixtureExamples(MediaLibraryTestCase):
     def test_dynamic_plex_tv_fixture_creation(self):
         """Test creating a dynamic Plex TV fixture."""
         # Create a temporary directory for the fixture
-        temp_dir = self.fixture_manager.get_test_data_dir() / 'dynamic_tv'
+        temp_dir = self.fixture_manager.test_data_dir / 'dynamic_tv'
         temp_dir.mkdir(parents=True, exist_ok=True)
         self.test_dirs.append(temp_dir)
         
@@ -342,7 +342,7 @@ class TestFixtureManagerDirectly(unittest.TestCase):
     
     def test_create_video_files(self):
         """Test creating video files with specific names."""
-        test_dir = self.fixture_manager.get_test_data_dir() / 'video_test'
+        test_dir = self.fixture_manager.test_data_dir / 'video_test'
         test_dir.mkdir(parents=True, exist_ok=True)
         self.test_dirs.append(test_dir)
         

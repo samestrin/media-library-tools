@@ -150,6 +150,24 @@ class PlexMovieSubdirRenamer:
             '.xvid', '.rm', '.rmvb', '.asf', '.f4v', '.m4p'
         }
     
+    def is_video_file(self, file_path) -> bool:
+        """Check if a file is a video file based on its extension.
+        
+        Args:
+            file_path: Path to the file to check (str or Path object)
+            
+        Returns:
+            True if file is a video file, False otherwise
+        """
+        if hasattr(file_path, 'suffix'):
+            # Path object
+            file_extension = file_path.suffix.lower()
+        else:
+            # String path
+            import os
+            file_extension = os.path.splitext(str(file_path))[1].lower()
+        return file_extension in self.video_extensions
+    
     def acquire_lock(self) -> bool:
         """Acquire file lock to prevent multiple instances."""
         if self.force:
@@ -290,7 +308,7 @@ def confirm_action(message: str, skip_confirmation: bool = False) -> bool:
 
 
 def validate_args(args):
-    \"\"\"Validate command line arguments.\"\"\"
+    """Validate command line arguments."""
     # Handle debug mode
     if args.debug:
         args.verbose = True
@@ -305,7 +323,7 @@ def validate_args(args):
         sys.exit(1)
 
 def handle_confirmation(args):
-    \"\"\"Handle user confirmation for the operation.\"\"\"
+    """Handle user confirmation for the operation."""
     # Confirm action unless in dry-run mode or confirmation skipped
     if not args.dry_run:
         if not confirm_action(
@@ -316,7 +334,7 @@ def handle_confirmation(args):
             sys.exit(0)
 
 def handle_result(args, success):
-    \"\"\"Handle the result of the renaming operation.\"\"\"
+    """Handle the result of the renaming operation."""
     if success:
         if args.dry_run:
             print("\\nDry run completed successfully. Use without --dry-run to execute.")
@@ -327,11 +345,11 @@ def handle_result(args, success):
         sys.exit(1)
 
 def main():
-    \"\"\"Main entry point.\"\"\"
+    """Main entry point."""
     parser = argparse.ArgumentParser(
         description="Rename movie featurettes and extras according to Plex naming conventions",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=\"\"\"
+        epilog="""
 Examples:
   # Preview what would be renamed (dry run)
   %(prog)s "./Featurettes" --dry-run
@@ -343,7 +361,7 @@ Examples:
   %(prog)s "./Behind the Scenes" -y
   
 
-\"\"\"
+"""
     )
     
     parser.add_argument(

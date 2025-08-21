@@ -29,7 +29,7 @@ class MediaLibraryTestCase(unittest.TestCase):
     def setUp(self):
         """Set up test case with fixture manager."""
         try:
-            from .fixture_manager import FixtureManager
+            from fixture_manager import FixtureManager
         except ImportError:
             # Fallback for when relative imports don't work
             import sys
@@ -269,7 +269,7 @@ def create_sabnzbd_fixture(base_dir: Path, scenario: str = 'mixed') -> Path:
     Returns:
         Path to created fixture
     """
-    from .fixture_manager import FixtureManager
+    from fixture_manager import FixtureManager
     
     manager = FixtureManager()
     
@@ -306,7 +306,7 @@ def create_plex_movie_fixture(base_dir: Path, with_extras: bool = True) -> Path:
     Returns:
         Path to created fixture
     """
-    from .fixture_manager import FixtureManager
+    from fixture_manager import FixtureManager
     
     manager = FixtureManager()
     
@@ -344,7 +344,7 @@ def create_plex_tv_fixture(base_dir: Path, num_seasons: int = 2, episodes_per_se
     Returns:
         Path to created fixture
     """
-    from .fixture_manager import FixtureManager
+    from fixture_manager import FixtureManager
     
     manager = FixtureManager()
     
@@ -446,3 +446,7 @@ def run_tool_with_args(tool_name: str, args: List[str]) -> tuple:
         return '', 'Tool execution timed out', 1
     except Exception as e:
         return '', str(e), 1
+
+
+# Indicate that test helpers are available
+TEST_HELPERS_AVAILABLE = True

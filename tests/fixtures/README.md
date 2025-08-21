@@ -149,13 +149,44 @@ The fixture structure is designed to be easily extended:
 - Modify existing fixtures for specific test cases
 - Use the `FixtureManager` to create dynamic fixtures
 
+## Critical Workflow: Immutable Fixtures vs Test Data
+
+**IMPORTANT**: The `/tests/fixtures/` directory is **IMMUTABLE** and should never be modified during tests.
+
+### Workflow Overview
+1. **Source**: `/tests/fixtures/` - Contains immutable template fixtures
+2. **Working Copy**: `/tests/test_data/` - Working directory where tests operate on copied data
+3. **Process**: Tests copy fixtures to `test_data`, modify/test them, then clean up
+
+### FixtureManager Usage
+```python
+# ✅ CORRECT: Copy fixture to test_data for modification
+test_dir = self.copy_fixture('sabnzbd/mixed_environment')
+# This creates: /tests/test_data/unique_test_id/sabnzbd_mixed_environment/
+
+# ✅ CORRECT: Now safe to modify, delete, or test
+test_file = test_dir / 'some_file.mp4'
+test_file.unlink()  # Safe - working on copy in test_data
+
+# ❌ WRONG: Never modify fixtures directly
+fixture_dir = Path('tests/fixtures/sabnzbd/mixed_environment')
+(fixture_dir / 'file.mp4').unlink()  # NEVER DO THIS
+```
+
+### MediaLibraryTestCase Integration
+- Automatically manages test_data cleanup
+- Each test gets isolated working directory
+- Fixtures remain pristine for all tests
+
 ## Best Practices
 
 1. **Use FixtureManager**: Always use the `FixtureManager` class for fixture operations
-2. **Clean Up**: Ensure test data is cleaned up after tests (automatic with `MediaLibraryTestCase`)
-3. **Isolation**: Each test should use its own copy of fixture data
-4. **Documentation**: Document any new fixtures or modifications
-5. **Realistic Data**: Keep fixtures representative of real-world scenarios
+2. **Immutable Fixtures**: Never modify files in `/tests/fixtures/` - they are templates
+3. **Work in test_data**: All test operations happen on copies in `/tests/test_data/`
+4. **Clean Up**: Ensure test data is cleaned up after tests (automatic with `MediaLibraryTestCase`)
+5. **Isolation**: Each test should use its own copy of fixture data
+6. **Documentation**: Document any new fixtures or modifications
+7. **Realistic Data**: Keep fixtures representative of real-world scenarios
 
 ## Contributing
 

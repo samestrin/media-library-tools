@@ -8,52 +8,75 @@ import os
 import sys
 from pathlib import Path
 
-# Add utils to path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'utils'))
+# Add the parent directory to the path to import test helpers
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Try to import test helpers, handle import errors gracefully
 try:
-    from test_helpers import MediaLibraryTestCase
-    TEST_HELPERS_AVAILABLE = True
+    from utils.test_helpers import MediaLibraryTestCase, TEST_HELPERS_AVAILABLE
 except ImportError:
     MediaLibraryTestCase = unittest.TestCase
     TEST_HELPERS_AVAILABLE = False
 
-# Add the plex directory to the path so we can import the scripts
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'plex'))
+import importlib.util
+import shutil
 
 # Try to import functions from plex tools, handle import errors gracefully
-try:
-    from plex_movie_subdir_renamer import PlexMovieSubdirRenamer, categorize_file, clean_title
-except ImportError:
-    PlexMovieSubdirRenamer = None
-    categorize_file = None
-    clean_title = None
+def load_plex_tool(tool_name):
+    """Load a Plex tool as a module by copying it to a temporary .py file."""
+    try:
+        script_path = Path(__file__).parent.parent.parent / 'Plex' / tool_name
+        if not script_path.exists():
+            print(f"DEBUG: Tool {tool_name} not found at {script_path}")
+            return None
+        
+        temp_script_path = Path(__file__).parent / f'temp_{tool_name}.py'
+        shutil.copy2(script_path, temp_script_path)
+        print(f"DEBUG: Copied {tool_name} to {temp_script_path}")
+        
+        spec = importlib.util.spec_from_file_location(tool_name, temp_script_path)
+        if spec is None or spec.loader is None:
+            print(f"DEBUG: Could not create spec for {tool_name}")
+            return None
+            
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[tool_name] = module
+        spec.loader.exec_module(module)
+        
+        # Debug: Print available attributes
+        attrs = [attr for attr in dir(module) if not attr.startswith('_')]
+        print(f"DEBUG: {tool_name} available attributes: {attrs}")
+        
+        temp_script_path.unlink(missing_ok=True)
+        return module
+    except Exception as e:
+        print(f"DEBUG: Error loading {tool_name}: {e}")
+        import traceback
+        traceback.print_exc()
+        temp_script_path = Path(__file__).parent / f'temp_{tool_name}.py'
+        temp_script_path.unlink(missing_ok=True)
+        return None
 
-try:
-    from plex_make_dirs import PlexDirectoryCreator
-except ImportError:
-    PlexDirectoryCreator = None
+# Load Plex tools
+plex_movie_subdir_renamer = load_plex_tool('plex_movie_subdir_renamer')
+PlexMovieSubdirRenamer = getattr(plex_movie_subdir_renamer, 'PlexMovieSubdirRenamer', None) if plex_movie_subdir_renamer else None
+categorize_file = getattr(plex_movie_subdir_renamer, 'categorize_file', None) if plex_movie_subdir_renamer else None
+clean_title = getattr(plex_movie_subdir_renamer, 'clean_title', None) if plex_movie_subdir_renamer else None
 
-try:
-    from plex_make_seasons import SeasonOrganizer
-except ImportError:
-    SeasonOrganizer = None
+plex_make_dirs = load_plex_tool('plex_make_dirs')
+PlexDirectoryCreator = getattr(plex_make_dirs, 'PlexDirectoryCreator', None) if plex_make_dirs else None
 
-try:
-    from plex_make_years import YearOrganizer
-except ImportError:
-    YearOrganizer = None
+plex_make_seasons = load_plex_tool('plex_make_seasons')
+SeasonOrganizer = getattr(plex_make_seasons, 'SeasonOrganizer', None) if plex_make_seasons else None
 
-try:
-    from plex_make_all_seasons import SeasonOrganizer as BatchSeasonOrganizer
-except ImportError:
-    BatchSeasonOrganizer = None
+plex_make_years = load_plex_tool('plex_make_years')
+YearOrganizer = getattr(plex_make_years, 'YearOrganizer', None) if plex_make_years else None
 
-try:
-    from plex_move_movie_extras import PlexMovieExtrasOrganizer
-except ImportError:
-    PlexMovieExtrasOrganizer = None
+plex_make_all_seasons = load_plex_tool('plex_make_all_seasons')
+BatchSeasonOrganizer = getattr(plex_make_all_seasons, 'SeasonOrganizer', None) if plex_make_all_seasons else None
+
+plex_move_movie_extras = load_plex_tool('plex_move_movie_extras')
+PlexMovieExtrasOrganizer = getattr(plex_move_movie_extras, 'PlexMovieExtrasOrganizer', None) if plex_move_movie_extras else None
 
 @unittest.skipIf(categorize_file is None, "Plex tools not available")
 class TestCategorizeFile(unittest.TestCase):
@@ -79,8 +102,11 @@ class TestCategorizeFile(unittest.TestCase):
     
     def test_other_categorization(self):
         """Test categorization of other extras."""
-        self.assertEqual(categorize_file("extra.mp4"), "featurette")  # Default
-        self.assertEqual(categorize_file("bonus_feature.mkv"), "featurette")  # Default
+        self.assertEqual(categorize_file("extra.mp4"), "other")
+        self.assertEqual(categorize_file("bonus_feature.mkv"), "other")
+        self.assertEqual(categorize_file("special_edition.mkv"), "other")
+        # Test default fallback to featurette
+        self.assertEqual(categorize_file("unknown_content.mp4"), "featurette")
 
 @unittest.skipIf(clean_title is None, "Plex tools not available")
 class TestCleanTitle(unittest.TestCase):
@@ -113,7 +139,7 @@ class TestPlexMovieSubdirRenamer(MediaLibraryTestCase):
             'sample.mkv': None,
             'sample.avi': None
         }
-        self.assert_directory_structure(test_dir, video_structure)
+        self.fixture_manager.assert_directory_structure(test_dir, video_structure)
         
         # Test with valid video extensions from fixtures
         self.assertTrue(self.renamer.is_video_file(test_dir / "sample.mp4"))
@@ -128,7 +154,7 @@ class TestPlexMovieSubdirRenamer(MediaLibraryTestCase):
             'poster.jpg': None,
             'fanart.png': None
         }
-        self.assert_directory_structure(image_dir, image_structure)
+        self.fixture_manager.assert_directory_structure(image_dir, image_structure)
         
         self.assertFalse(self.renamer.is_video_file(image_dir / "poster.jpg"))
         self.assertFalse(self.renamer.is_video_file(image_dir / "fanart.png"))
@@ -140,7 +166,9 @@ class TestPlexDirectoryCreator(MediaLibraryTestCase):
     def setUp(self):
         """Set up test fixtures."""
         super().setUp()
-        self.creator = PlexDirectoryCreator()
+        # Configure to exclude image files for proper Plex media organization
+        image_types = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.tif', '.webp', '.svg', '.ico', '.psd', '.raw', '.cr2', '.nef', '.arw'}
+        self.creator = PlexDirectoryCreator(exclude_types=image_types)
     
     def test_should_process_file(self):
         """Test should_process_file method."""

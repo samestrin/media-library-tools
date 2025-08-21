@@ -6,40 +6,65 @@ Unit tests for SABnzbd Directory Cleanup Script
 import unittest
 import os
 import sys
+import importlib.util
 from pathlib import Path
 
-# Add utils to path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'utils'))
+# Add the parent directory to the path to import test helpers
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Try to import test helpers, handle import errors gracefully
 try:
-    from test_helpers import MediaLibraryTestCase
-    TEST_HELPERS_AVAILABLE = True
+    from utils.test_helpers import MediaLibraryTestCase, TEST_HELPERS_AVAILABLE
 except ImportError:
     MediaLibraryTestCase = unittest.TestCase
     TEST_HELPERS_AVAILABLE = False
 
-# Add the SABnzbd directory to the path so we can import the script
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'SABnzbd'))
-
-# Try to import functions from sabnzbd_cleanup, handle import errors gracefully
+# Try to import functions from sabnzbd_cleanup script, handle import errors gracefully
 try:
-    from sabnzbd_cleanup import (
-        SABnzbdDetector,
-        get_dir_size,
-        bytes_to_human,
-        is_non_interactive,
-        parse_size_threshold
-    )
-except ImportError:
+    # Load the sabnzbd_cleanup script as a module by copying it to a .py file temporarily
+    script_path = Path(__file__).parent.parent.parent / 'SABnzbd' / 'sabnzbd_cleanup'
+    temp_script_path = Path(__file__).parent / 'temp_sabnzbd_cleanup.py'
+    
+    # Copy the script content to a temporary .py file
+    import shutil
+    shutil.copy2(script_path, temp_script_path)
+    
+    # Now import it as a regular Python module
+    spec = importlib.util.spec_from_file_location("sabnzbd_cleanup", temp_script_path)
+    sabnzbd_module = importlib.util.module_from_spec(spec)
+    sys.modules["sabnzbd_cleanup"] = sabnzbd_module
+    spec.loader.exec_module(sabnzbd_module)
+    
+    # Extract the classes and functions we need
+    SABnzbdDetector = getattr(sabnzbd_module, 'SABnzbdDetector', None)
+    get_dir_size = getattr(sabnzbd_module, 'get_dir_size', None)
+    bytes_to_human = getattr(sabnzbd_module, 'bytes_to_human', None)
+    is_non_interactive = getattr(sabnzbd_module, 'is_non_interactive', None)
+    parse_size_threshold = getattr(sabnzbd_module, 'parse_size_threshold', None)
+    
+    # Clean up the temporary file
+    temp_script_path.unlink(missing_ok=True)
+    
+except Exception as e:
+    print(f"Import failed: {e}")
+    import traceback
+    traceback.print_exc()
     SABnzbdDetector = None
     get_dir_size = None
     bytes_to_human = None
     is_non_interactive = None
     parse_size_threshold = None
+    # Clean up the temporary file in case of error
+    temp_script_path = Path(__file__).parent / 'temp_sabnzbd_cleanup.py'
+    temp_script_path.unlink(missing_ok=True)
+
+# Debug: Print what we imported
+print(f"DEBUG: SABnzbdDetector = {SABnzbdDetector}")
+print(f"DEBUG: bytes_to_human = {bytes_to_human}")
+print(f"DEBUG: TEST_HELPERS_AVAILABLE = {TEST_HELPERS_AVAILABLE}")
 
 @unittest.skipIf(bytes_to_human is None, "SABnzbd tools not available")
-class TestBytesToHuman(unittest.TestCase):
+class TestBytesToHuman(MediaLibraryTestCase):
     """Test the bytes_to_human function."""
     
     def test_bytes_conversion(self):
@@ -58,7 +83,7 @@ class TestBytesToHuman(unittest.TestCase):
         self.assertEqual(bytes_to_human(2048), "2K")
 
 @unittest.skipIf(parse_size_threshold is None, "SABnzbd tools not available")
-class TestParseSizeThreshold(unittest.TestCase):
+class TestParseSizeThreshold(MediaLibraryTestCase):
     """Test the parse_size_threshold function."""
     
     def test_valid_formats(self):
@@ -85,7 +110,7 @@ class TestParseSizeThreshold(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_size_threshold("50X")
 
-@unittest.skipIf(SABnzbdDetector is None or not TEST_HELPERS_AVAILABLE, "SABnzbd tools not available")
+@unittest.skipIf(SABnzbdDetector is None or not TEST_HELPERS_AVAILABLE, "SABnzbd tools or test helpers not available")
 class TestSABnzbdDetector(MediaLibraryTestCase):
     """Test the SABnzbdDetector class."""
     
@@ -104,7 +129,7 @@ class TestSABnzbdDetector(MediaLibraryTestCase):
             'incomplete': {},
             'watched': {}
         }
-        self.assert_directory_structure(test_dir, expected_structure)
+        self.fixture_manager.assert_directory_structure(test_dir, expected_structure)
         
         empty_dir = test_dir / "empty_test_dir"
         empty_dir.mkdir()
@@ -122,7 +147,7 @@ class TestSABnzbdDetector(MediaLibraryTestCase):
             'incomplete': {},
             'watched': {}
         }
-        self.assert_directory_structure(test_dir, expected_structure)
+        self.fixture_manager.assert_directory_structure(test_dir, expected_structure)
         
         empty_dir = test_dir / "empty_test_dir"
         empty_dir.mkdir()
