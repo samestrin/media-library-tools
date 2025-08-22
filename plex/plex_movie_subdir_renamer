@@ -351,13 +351,22 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Preview what would be renamed (dry run)
+  # Preview what would be renamed in current directory (dry run)
+  %(prog)s --dry-run
+  
+  # Preview what would be renamed in specific directory (dry run)
   %(prog)s "./Featurettes" --dry-run
   
-  # Actually rename files with confirmation
+  # Actually rename files in current directory with confirmation
+  %(prog)s --movie-name "Movie Title"
+  
+  # Actually rename files in specific directory with confirmation
   %(prog)s "./Deleted Scenes" --movie-name "Movie Title"
   
-  # Rename files without confirmation (for automation)
+  # Rename files in current directory without confirmation (for automation)
+  %(prog)s -y
+  
+  # Rename files in specific directory without confirmation (for automation)
   %(prog)s "./Behind the Scenes" -y
   
 
@@ -366,7 +375,9 @@ Examples:
     
     parser.add_argument(
         "directory", 
-        help="Directory containing video files to rename"
+        nargs='?',
+        default='.',
+        help="Directory containing video files to rename (default: current directory)"
     )
     parser.add_argument(
         "--movie-name", 

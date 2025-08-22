@@ -347,12 +347,16 @@ def main():
         description="Plex Directory Creator - Convert files to directory structure",
         epilog="""
 Examples:
-  %(prog)s /path/to/media                    # Process all supported file types (interactive)
-  %(prog)s /path/to/media --dry-run          # Preview changes
-  %(prog)s /path/to/media -y                 # Process without confirmation
-  %(prog)s /path/to/media --types mp4 mkv   # Only process MP4 and MKV files
-  %(prog)s /path/to/media --exclude txt pdf # Exclude text and PDF files
-  %(prog)s /path/to/media --force            # Force run (bypass lock)
+  %(prog)s                                   # Process current directory (interactive)
+  %(prog)s /path/to/media                    # Process specific directory (interactive)
+  %(prog)s --dry-run                         # Preview changes in current directory
+  %(prog)s /path/to/media --dry-run          # Preview changes in specific directory
+  %(prog)s -y                                # Process current directory without confirmation
+  %(prog)s /path/to/media -y                 # Process specific directory without confirmation
+  %(prog)s --types mp4 mkv                   # Only process MP4 and MKV files (current dir)
+  %(prog)s /path/to/media --types mp4 mkv    # Only process MP4 and MKV files (specific dir)
+  %(prog)s --exclude txt pdf                 # Exclude text and PDF files (current dir)
+  %(prog)s --force                           # Force run in current directory (bypass lock)
   
 Cron Usage:
   # Run daily at 4 AM (non-interactive)
@@ -363,7 +367,9 @@ Cron Usage:
     
     parser.add_argument(
         'directory',
-        help='Directory containing files to process'
+        nargs='?',
+        default='.',
+        help='Directory containing files to process (default: current directory)'
     )
     parser.add_argument(
         '--dry-run',

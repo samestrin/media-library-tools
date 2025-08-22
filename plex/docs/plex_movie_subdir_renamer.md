@@ -17,13 +17,13 @@ Renames movie featurettes and extras in subdirectories according to Plex naming 
 
 **Direct download**
 ```bash
-wget https://raw.githubusercontent.com/user/media-library-tools/main/plex/plex_movie_subdir_renamer
+wget https://raw.githubusercontent.com/samestrin/media-library-tools/main/plex/plex_movie_subdir_renamer
 chmod +x plex_movie_subdir_renamer
 ```
 
 **Clone repository**
 ```bash
-git clone https://github.com/user/media-library-tools.git
+git clone https://github.com/samestrin/media-library-tools.git
 cd media-library-tools/plex
 ```
 

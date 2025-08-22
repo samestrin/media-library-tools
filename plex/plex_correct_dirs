@@ -317,10 +317,13 @@ def main():
         description="Plex Directory Name Corrector - Sanitize and organize Plex media directory names",
         epilog="""
 Examples:
-  %(prog)s /path/to/media                    # Process directory (interactive)
-  %(prog)s /path/to/media --dry-run          # Preview changes
-  %(prog)s /path/to/media -y                 # Process without confirmation
-  %(prog)s /path/to/media --force            # Force run (bypass lock)
+  %(prog)s                                   # Process current directory (interactive)
+  %(prog)s /path/to/media                    # Process specific directory (interactive)
+  %(prog)s --dry-run                         # Preview changes in current directory
+  %(prog)s /path/to/media --dry-run          # Preview changes in specific directory
+  %(prog)s -y                                # Process current directory without confirmation
+  %(prog)s /path/to/media -y                 # Process specific directory without confirmation
+  %(prog)s --force                           # Force run in current directory (bypass lock)
   
 Cron Usage:
   # Run daily at 2 AM (non-interactive)
@@ -331,7 +334,9 @@ Cron Usage:
     
     parser.add_argument(
         'directory',
-        help='Directory to process'
+        nargs='?',
+        default='.',
+        help='Directory to process (default: current directory)'
     )
     parser.add_argument(
         '--dry-run',

@@ -458,12 +458,16 @@ def main():
         description="Plex Year Organizer - Organize directories by year",
         epilog="""
 Examples:
-  %(prog)s /path/to/media                       # Organize directories by year (interactive)
-  %(prog)s /path/to/media --dry-run             # Preview changes
-  %(prog)s /path/to/media -y                    # Organize without confirmation
-  %(prog)s /path/to/media --base /organized     # Create year dirs in different location
-  %(prog)s /path/to/media --year-range 1980 2025 # Custom year range
-  %(prog)s /path/to/media --force               # Force run (bypass lock)
+  %(prog)s                                      # Organize current directory by year (interactive)
+  %(prog)s /path/to/media                       # Organize specific directory by year (interactive)
+  %(prog)s --dry-run                            # Preview changes in current directory
+  %(prog)s /path/to/media --dry-run             # Preview changes in specific directory
+  %(prog)s -y                                   # Organize current directory without confirmation
+  %(prog)s /path/to/media -y                    # Organize specific directory without confirmation
+  %(prog)s --base /organized                    # Create year dirs in different location (current dir)
+  %(prog)s /path/to/media --base /organized     # Create year dirs in different location (specific dir)
+  %(prog)s --year-range 1980 2025               # Custom year range (current directory)
+  %(prog)s --force                              # Force run in current directory (bypass lock)
   
 Cron Usage:
   # Run daily at 2 AM (non-interactive)
@@ -474,7 +478,9 @@ Cron Usage:
     
     parser.add_argument(
         'directory',
-        help='Directory containing directories to organize by year'
+        nargs='?',
+        default='.',
+        help='Directory containing directories to organize by year (default: current directory)'
     )
     parser.add_argument(
         '--base',

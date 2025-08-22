@@ -16,14 +16,17 @@ A Python script that safely identifies and removes temporary/incomplete download
 
 ## Installation
 
-This tool requires Python 3.6+ and uses only standard library modules.
-
+**Direct download**
 ```bash
-# Make script executable
+wget https://raw.githubusercontent.com/samestrin/media-library-tools/main/SABnzbd/sabnzbd_cleanup
 chmod +x sabnzbd_cleanup
+```
 
-# Run directly
-./sabnzbd_cleanup --help
+**Clone repository**
+```bash
+git clone https://github.com/samestrin/media-library-tools.git
+cd media-library-tools/SABnzbd
+chmod +x sabnzbd_cleanup
 ```
 
 ## Usage
@@ -252,3 +255,25 @@ rm /tmp/sabnzbd_cleanup.lock
 - **v2.1**: Enhanced scoring system, added file locking, improved cron compatibility
 - **v2.0**: Complete Python rewrite from original bash script with advanced detection algorithms
 - **v1.x**: Original bash implementation with basic pattern matching
+
+## Related Tools
+
+- [`plex_make_all_seasons`](../plex/docs/plex_make_all_seasons.md) - Organize TV show episodes into season directories
+- [`plex_correct_dirs`](../plex/docs/plex_correct_dirs.md) - Sanitize and organize Plex media directory names
+- [`plex_server_episode_refresh`](../plex-api/docs/plex_server_episode_refresh.md) - Force Plex to regenerate episode thumbnails
+- [Main Project README](../README.md) - Complete media library tools overview
+
+## Support
+
+For issues, feature requests, or contributions:
+- GitHub Issues: [Project Issues](https://github.com/samestrin/media-library-tools/issues)
+- Documentation: [Project Wiki](https://github.com/samestrin/media-library-tools/wiki)
+- Discussions: [GitHub Discussions](https://github.com/samestrin/media-library-tools/discussions)
+
+## License
+
+This tool is part of the Media Library Tools project and is released under the MIT License. See the main project LICENSE file for details.
+
+---
+
+*Part of the Media Library Tools project - A collection of utilities for organizing and maintaining Plex media libraries.*

@@ -20,7 +20,7 @@ A Python tool for organizing TV show episodes into season directories for optima
 
 ```bash
 # Download and make executable
-wget https://raw.githubusercontent.com/user/media-library-tools/main/Plex/plex_make_all_seasons.py
+wget https://raw.githubusercontent.com/samestrin/media-library-tools/main/Plex/plex_make_all_seasons.py
 chmod +x plex_make_all_seasons.py
 ```
 
