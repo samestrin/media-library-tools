@@ -609,7 +609,7 @@ and rename directories to "Show Title (YEAR)" format.
     parser.add_argument('path', nargs='?', default='.',
                         help='Directory to process (default: current directory)')
     parser.add_argument('--tvdb-key', 
-                        help='TVDB API key (can also use TVDB_API_KEY env var or .env file)')
+                        help='TVDB API key (can also use TVDB_API_KEY env var, local .env, or ~/.media-library-tool/.env)')
     parser.add_argument('--dry-run', action='store_true', default=True,
                         help='Show what would be renamed without making changes (default: true)')
     parser.add_argument('--execute', action='store_true',
@@ -640,7 +640,7 @@ and rename directories to "Show Title (YEAR)" format.
     tvdb_key = get_tvdb_key_from_sources(args.tvdb_key, args.debug)
     if not tvdb_key:
         print("Error: TVDB_API_KEY not found. Please provide via --tvdb-key argument, "
-              "TVDB_API_KEY environment variable, or .env file", file=sys.stderr)
+              "TVDB_API_KEY environment variable, local .env file, or ~/.media-library-tool/.env file", file=sys.stderr)
         sys.exit(1)
     
     # Display header

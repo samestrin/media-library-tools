@@ -50,7 +50,7 @@ chmod +x plex_update_tv_years
 
 ### Providing the API Key
 
-The tool supports three methods for providing your TVDB API key (in order of precedence):
+The tool supports four methods for providing your TVDB API key (in order of precedence):
 
 **Method 1: Command Line Argument (Highest Priority)**
 ```bash
@@ -63,12 +63,22 @@ export TVDB_API_KEY="YOUR_API_KEY_HERE"
 ./plex_update_tv_years /path/to/tv/shows
 ```
 
-**Method 3: .env File (Lowest Priority)**
+**Method 3: Local .env File**
 Create a `.env` file in the same directory as the script:
 ```bash
 echo "TVDB_API_KEY=YOUR_API_KEY_HERE" > .env
 ./plex_update_tv_years /path/to/tv/shows
 ```
+
+**Method 4: Global .env File (Lowest Priority)**
+Create a global configuration file in your home directory:
+```bash
+mkdir -p ~/.media-library-tool
+echo "TVDB_API_KEY=YOUR_API_KEY_HERE" > ~/.media-library-tool/.env
+./plex_update_tv_years /path/to/tv/shows
+```
+
+This global .env file can be shared across all media library tools that support credential handling.
 
 ## Usage
 
@@ -93,7 +103,7 @@ Arguments:
   PATH                  Directory containing TV show subdirectories (default: current directory)
 
 Options:
-  --tvdb-key KEY       TVDB API key (can also use TVDB_API_KEY env var or .env file)
+  --tvdb-key KEY       TVDB API key (can also use TVDB_API_KEY env var, local .env, or global ~/.media-library-tool/.env)
   --dry-run            Show what would be renamed without making changes (default: true)
   --execute            Actually perform the renaming operations (overrides --dry-run)
   -y, --yes            Skip confirmation prompts (for non-interactive use)

@@ -46,10 +46,10 @@ class PlexServerEpisodeRefresh:
         self.server_url = (server_url or self._get_server_from_sources()).rstrip('/')
         
         if not self.token:
-            raise ValueError("PLEX_TOKEN not found. Please provide via --token argument, PLEX_TOKEN environment variable, or .env file")
+            raise ValueError("PLEX_TOKEN not found. Please provide via --token argument, PLEX_TOKEN environment variable, local .env, or ~/.media-library-tool/.env file")
         
         if not self.server_url:
-            raise ValueError("PLEX_SERVER not found. Please provide via --server argument, PLEX_SERVER environment variable, or .env file")
+            raise ValueError("PLEX_SERVER not found. Please provide via --server argument, PLEX_SERVER environment variable, local .env, or ~/.media-library-tool/.env file")
     
     def _get_token_from_sources(self) -> Optional[str]:
         """Get PLEX_TOKEN from environment variable or .env file."""
@@ -60,7 +60,7 @@ class PlexServerEpisodeRefresh:
                 print("Found PLEX_TOKEN in environment variable")
             return token.strip('"\'')
         
-        # Then check .env file
+        # Then check local .env file
         env_file = '.env'
         if os.path.exists(env_file):
             try:
@@ -77,6 +77,23 @@ class PlexServerEpisodeRefresh:
                 if self.debug:
                     print(f"Could not read .env file: {e}")
         
+        # Finally check global .env file
+        from pathlib import Path
+        global_env_path = Path.home() / '.media-library-tool' / '.env'
+        if global_env_path.exists():
+            try:
+                with open(global_env_path, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith('PLEX_TOKEN='):
+                            token = line.split('=', 1)[1].strip()
+                            if self.debug:
+                                print("Found PLEX_TOKEN in global .env file")
+                            return token.strip('"\'')
+            except (IOError, OSError) as e:
+                if self.debug:
+                    print(f"Could not read global .env file: {e}")
+        
         return None
     
     def _get_server_from_sources(self) -> Optional[str]:
@@ -88,7 +105,7 @@ class PlexServerEpisodeRefresh:
                 print("Found PLEX_SERVER in environment variable")
             return server.strip('"\'')
         
-        # Then check .env file
+        # Then check local .env file
         env_file = '.env'
         if os.path.exists(env_file):
             try:
@@ -104,6 +121,23 @@ class PlexServerEpisodeRefresh:
             except (IOError, OSError) as e:
                 if self.debug:
                     print(f"Could not read .env file: {e}")
+        
+        # Finally check global .env file
+        from pathlib import Path
+        global_env_path = Path.home() / '.media-library-tool' / '.env'
+        if global_env_path.exists():
+            try:
+                with open(global_env_path, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith('PLEX_SERVER='):
+                            server = line.split('=', 1)[1].strip()
+                            if self.debug:
+                                print("Found PLEX_SERVER in global .env file")
+                            return server.strip('"\'')
+            except (IOError, OSError) as e:
+                if self.debug:
+                    print(f"Could not read global .env file: {e}")
         
         # Default fallback
         if self.debug:
@@ -291,13 +325,15 @@ Examples:
 Token Sources (in order of priority):
   1. --token command line argument
   2. PLEX_TOKEN environment variable
-  3. PLEX_TOKEN in .env file
+  3. PLEX_TOKEN in local .env file
+  4. PLEX_TOKEN in ~/.media-library-tool/.env file
 
 Server Sources (in order of priority):
   1. --server command line argument
   2. PLEX_SERVER environment variable
-  3. PLEX_SERVER in .env file
-  4. Default: http://localhost:32400
+  3. PLEX_SERVER in local .env file
+  4. PLEX_SERVER in ~/.media-library-tool/.env file
+  5. Default: http://localhost:32400
 
 
 """
@@ -342,8 +378,8 @@ Server Sources (in order of priority):
     except ValueError as e:
         print(f"Configuration Error: {e}", file=sys.stderr)
         print("\nPlease provide required configuration via:", file=sys.stderr)
-        print("  Token: --token argument, PLEX_TOKEN environment variable, or .env file", file=sys.stderr)
-        print("  Server: --server argument, PLEX_SERVER environment variable, or .env file", file=sys.stderr)
+        print("  Token: --token argument, PLEX_TOKEN environment variable, local .env, or ~/.media-library-tool/.env file", file=sys.stderr)
+        print("  Server: --server argument, PLEX_SERVER environment variable, local .env, or ~/.media-library-tool/.env file", file=sys.stderr)
         sys.exit(1)
     except KeyboardInterrupt:
         print("\nOperation cancelled by user", file=sys.stderr)
