@@ -331,7 +331,7 @@ class TestCredentialHandling(MediaLibraryTestCase):
             )
         
         self.assertIn("PLEX_TOKEN not found", str(context.exception))
-        self.assertIn("~/.media-library-tool/.env", str(context.exception))
+        self.assertIn("~/.media-library-tools/.env", str(context.exception))
     
     @patch('pathlib.Path.home')
     def test_global_env_file_error_handling(self):
@@ -634,7 +634,7 @@ class TestErrorHandling(MediaLibraryTestCase):
             )
         
         self.assertIn("PLEX_TOKEN not found", str(context.exception))
-        self.assertIn("~/.media-library-tool/.env", str(context.exception))
+        self.assertIn("~/.media-library-tools/.env", str(context.exception))
     
     def test_missing_server_raises_error(self):
         """Test that missing PLEX_SERVER raises ValueError."""

@@ -74,7 +74,7 @@ echo "TVDB_API_KEY=YOUR_API_KEY_HERE" > .env
 Create a global configuration file in your home directory:
 ```bash
 mkdir -p ~/.media-library-tool
-echo "TVDB_API_KEY=YOUR_API_KEY_HERE" > ~/.media-library-tool/.env
+echo "TVDB_API_KEY=YOUR_API_KEY_HERE" > ~/.media-library-tools/.env
 ./plex_update_tv_years /path/to/tv/shows
 ```
 
@@ -103,7 +103,7 @@ Arguments:
   PATH                  Directory containing TV show subdirectories (default: current directory)
 
 Options:
-  --tvdb-key KEY       TVDB API key (can also use TVDB_API_KEY env var, local .env, or global ~/.media-library-tool/.env)
+  --tvdb-key KEY       TVDB API key (can also use TVDB_API_KEY env var, local .env, or global ~/.media-library-tools/.env)
   --dry-run            Show what would be renamed without making changes (default: true)
   --execute            Actually perform the renaming operations (overrides --dry-run)
   -y, --yes            Skip confirmation prompts (for non-interactive use)

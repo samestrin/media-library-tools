@@ -7,7 +7,7 @@ Forces Plex Media Server to regenerate thumbnails for specific episodes. This se
 ## Features
 
 - **Force thumbnail regeneration**: Refresh specific episodes using their rating key (ID)
-- **Multiple token sources**: CLI argument, environment variables, local `.env`, or global `~/.media-library-tool/.env` file
+- **Multiple token sources**: CLI argument, environment variables, local `.env`, or global `~/.media-library-tools/.env` file
 - **Flexible server configuration**: Supports custom Plex server URLs and hostnames
 - **Comprehensive logging**: Verbose and debug modes for troubleshooting
 - **Interactive design**: Confirmation prompts with `-y` flag for automation
@@ -37,7 +37,7 @@ The tool requires a Plex authentication token (in order of priority):
 1. Command line argument: `--token YOUR_PLEX_TOKEN`
 2. Environment variable: `export PLEX_TOKEN="YOUR_PLEX_TOKEN"`
 3. Local `.env` file: `echo "PLEX_TOKEN=YOUR_PLEX_TOKEN" > .env`
-4. Global `.env` file: `mkdir -p ~/.media-library-tool && echo "PLEX_TOKEN=YOUR_PLEX_TOKEN" > ~/.media-library-tool/.env`
+4. Global `.env` file: `mkdir -p ~/.media-library-tool && echo "PLEX_TOKEN=YOUR_PLEX_TOKEN" > ~/.media-library-tools/.env`
 
 **Plex server setup**
 
@@ -46,10 +46,10 @@ The tool requires a Plex server URL (in order of priority):
 1. Command line argument: `--server http://plex.local:32400`
 2. Environment variable: `export PLEX_SERVER="http://plex.local:32400"`
 3. Local `.env` file: `echo "PLEX_SERVER=http://plex.local:32400" >> .env`
-4. Global `.env` file: `echo "PLEX_SERVER=http://plex.local:32400" >> ~/.media-library-tool/.env`
+4. Global `.env` file: `echo "PLEX_SERVER=http://plex.local:32400" >> ~/.media-library-tools/.env`
 5. Default fallback: `http://localhost:32400`
 
-The global `.env` file at `~/.media-library-tool/.env` can be shared across all media library tools that support credential handling.
+The global `.env` file at `~/.media-library-tools/.env` can be shared across all media library tools that support credential handling.
 
 **Finding your Plex token**
 
