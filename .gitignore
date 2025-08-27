@@ -4,6 +4,9 @@ QWEN.md
 CLAUDE.md
 project_rules.md
 .claude
+.env
+results/
+CODING_STANDARD.md
 
 # Python cache files
 __pycache__/
