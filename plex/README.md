@@ -75,6 +75,17 @@ Batch processes multiple TV shows for season organization.
 
 **Documentation**: [docs/plex_make_all_seasons.md](docs/plex_make_all_seasons.md)
 
+#### `plex_update_tv_years` (Python)
+Updates TV show directory names with correct release years using TVDB API.
+- TVDB v4 API integration for accurate show year information
+- Intelligent year detection from existing directory names
+- Standardized "Show Title (YEAR)" output format
+- Safe dry-run mode with comprehensive preview
+- Flexible API key authentication (CLI, environment, .env file)
+- File locking and non-interactive automation support
+
+**Documentation**: [docs/plex_update_tv_years.md](docs/plex_update_tv_years.md)
+
 ### Year-Based Organization
 
 #### `plex_make_years` (Python)
@@ -145,6 +156,10 @@ Renames movie featurettes and extras within subdirectories according to Plex nam
 
 # Process multiple shows
 ./plex_make_all_seasons /path/to/tv/library
+
+# Update TV show years using TVDB
+./plex_update_tv_years /path/to/tv/shows --dry-run
+./plex_update_tv_years /path/to/tv/shows --execute --tvdb-key YOUR_API_KEY
 ```
 
 ### Directory organization
@@ -257,6 +272,7 @@ sudo -u plex ./script_name
 - [docs/plex_make_years.md](docs/plex_make_years.md) - Year-based movie organization
 - [docs/plex_move_movie_extras.md](docs/plex_move_movie_extras.md) - Movie extras organization
 - [docs/plex_movie_subdir_renamer.md](docs/plex_movie_subdir_renamer.md) - Movie subdirectory renaming
+- [docs/plex_update_tv_years.md](docs/plex_update_tv_years.md) - TV show year updating via TVDB
 
 ## Resources
 
