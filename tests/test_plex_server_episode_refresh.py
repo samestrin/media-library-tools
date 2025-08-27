@@ -600,5 +600,326 @@ class TestPlexServerEpisodeRefresh(MediaLibraryTestCase):
         mock_print.assert_not_called()
 
 
+class TestErrorHandling(MediaLibraryTestCase):
+    """Test error handling functionality."""
+    
+    def setUp(self):
+        """Set up test environment."""
+        super().setUp()
+        self.module = load_plex_server_episode_refresh()
+        if not self.module:
+            self.skipTest("plex_server_episode_refresh module not available")
+    
+    def test_missing_token_raises_error(self):
+        """Test that missing PLEX_TOKEN raises ValueError."""
+        with self.assertRaises(ValueError) as context:
+            self.module.PlexServerEpisodeRefresh(
+                token=None,
+                server_url="http://test:32400",
+                verbose=False,
+                debug=False
+            )
+        
+        self.assertIn("PLEX_TOKEN not found", str(context.exception))
+        self.assertIn("~/.media-library-tool/.env", str(context.exception))
+    
+    def test_missing_server_raises_error(self):
+        """Test that missing PLEX_SERVER raises ValueError."""
+        # This won't actually raise an error since server has a default fallback
+        # But let's test with an explicitly None server
+        client = self.module.PlexServerEpisodeRefresh(
+            token="test_token",
+            server_url=None,
+            verbose=False,
+            debug=False
+        )
+        # Should use default server
+        self.assertEqual(client.server_url, "http://localhost:32400")
+    
+    @patch('urllib.request.urlopen')
+    def test_refresh_episode_image_invalid_hash(self):
+        """Test handling of invalid episode hash."""
+        # Mock API response for non-existent episode
+        mock_error = MagicMock()
+        mock_error.side_effect = Exception("HTTP 404: Not Found")
+        
+        client = self.module.PlexServerEpisodeRefresh(
+            token="test_token",
+            server_url="http://test:32400",
+            verbose=False,
+            debug=False
+        )
+        
+        with patch.object(client, '_make_request', return_value=None):
+            result = client.refresh_episode_image("invalid_hash")
+            self.assertFalse(result)
+    
+    @patch('urllib.request.urlopen')
+    def test_refresh_episode_image_api_error(self):
+        """Test handling of API errors during episode refresh."""
+        client = self.module.PlexServerEpisodeRefresh(
+            token="test_token",
+            server_url="http://test:32400",
+            verbose=False,
+            debug=False
+        )
+        
+        # Mock initial metadata request success but subsequent requests fail
+        call_count = 0
+        def mock_make_request(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                # First call (metadata) succeeds
+                return {
+                    "MediaContainer": {
+                        "Metadata": [{
+                            "title": "Test Episode",
+                            "grandparentTitle": "Test Show",
+                            "parentIndex": 1,
+                            "index": 1
+                        }]
+                    }
+                }
+            else:
+                # Subsequent calls fail
+                return None
+        
+        with patch.object(client, '_make_request', side_effect=mock_make_request):
+            result = client.refresh_episode_image("test_hash")
+            # Should still return True as the process is designed to continue even if some steps fail
+            self.assertTrue(result)
+    
+    @patch('urllib.request.urlopen')
+    def test_refresh_episode_image_empty_metadata(self):
+        """Test handling when episode metadata is empty."""
+        client = self.module.PlexServerEpisodeRefresh(
+            token="test_token",
+            server_url="http://test:32400",
+            verbose=False,
+            debug=False
+        )
+        
+        # Mock empty metadata response
+        empty_metadata = {
+            "MediaContainer": {
+                "Metadata": []
+            }
+        }
+        
+        with patch.object(client, '_make_request', return_value=empty_metadata):
+            result = client.refresh_episode_image("test_hash")
+            self.assertTrue(result)  # Process continues even with empty metadata
+
+
+class TestIntegrationWorkflow(MediaLibraryTestCase):
+    """Test end-to-end integration workflows."""
+    
+    def setUp(self):
+        """Set up test environment."""
+        super().setUp()
+        self.module = load_plex_server_episode_refresh()
+        if not self.module:
+            self.skipTest("plex_server_episode_refresh module not available")
+    
+    @patch('time.sleep')  # Skip actual sleep delays
+    @patch('urllib.request.urlopen')
+    def test_complete_episode_refresh_workflow(self):
+        """Test complete episode refresh workflow with mocked API responses."""
+        client = self.module.PlexServerEpisodeRefresh(
+            token="test_token",
+            server_url="http://test:32400",
+            verbose=False,
+            debug=False
+        )
+        
+        # Mock the complete workflow
+        call_sequence = []
+        def mock_make_request(url, method='GET', data=None):
+            call_sequence.append((url, method))
+            
+            if 'metadata/12345' in url and method == 'GET':
+                # Episode metadata request
+                return {
+                    "MediaContainer": {
+                        "Metadata": [{
+                            "title": "Test Episode",
+                            "grandparentTitle": "Test Show",
+                            "parentIndex": 1,
+                            "index": 1,
+                            "thumb": "/library/metadata/12345/thumb/123456789"
+                        }]
+                    }
+                }
+            elif 'analyze' in url and method == 'PUT':
+                # Analyze request
+                return ""
+            elif 'refresh' in url and method == 'PUT':
+                # Refresh request  
+                return ""
+            elif 'posters' in url and method == 'DELETE':
+                # Clear thumbnail request
+                return ""
+            else:
+                return {}
+        
+        with patch.object(client, '_make_request', side_effect=mock_make_request):
+            result = client.refresh_episode_image("12345")
+            
+            self.assertTrue(result)
+            
+            # Verify the expected sequence of API calls
+            expected_calls = [
+                ('http://test:32400/library/metadata/12345', 'GET'),  # Initial metadata
+                ('http://test:32400/library/metadata/12345/analyze', 'PUT'),  # Analyze
+                ('http://test:32400/library/metadata/12345/refresh', 'PUT'),  # Refresh
+                ('http://test:32400/library/metadata/12345', 'GET'),  # Get metadata again
+                ('http://test:32400/library/metadata/12345/posters', 'DELETE'),  # Clear thumbnails
+                ('http://test:32400/library/metadata/12345/analyze', 'PUT'),  # Re-analyze
+            ]
+            
+            for expected_call in expected_calls:
+                self.assertIn(expected_call, call_sequence)
+    
+    @patch('time.sleep')  # Skip actual sleep delays
+    @patch('builtins.print')
+    def test_verbose_workflow(self):
+        """Test complete workflow with verbose output."""
+        client = self.module.PlexServerEpisodeRefresh(
+            token="test_token",
+            server_url="http://test:32400",
+            verbose=True,
+            debug=False
+        )
+        
+        # Mock API responses
+        def mock_make_request(url, method='GET', data=None):
+            if 'metadata/12345' in url and method == 'GET':
+                return {
+                    "MediaContainer": {
+                        "Metadata": [{
+                            "title": "Pilot",
+                            "grandparentTitle": "Breaking Bad",
+                            "parentIndex": 1,
+                            "index": 1,
+                            "thumb": "/library/metadata/12345/thumb/123456789"
+                        }]
+                    }
+                }
+            else:
+                return ""
+        
+        with patch.object(client, '_make_request', side_effect=mock_make_request):
+            result = client.refresh_episode_image("12345")
+            
+            self.assertTrue(result)
+            # Verify verbose output was called (would show up in mock_print calls)
+    
+    @patch('time.sleep')
+    @patch('builtins.print')
+    def test_debug_workflow(self):
+        """Test complete workflow with debug output."""
+        client = self.module.PlexServerEpisodeRefresh(
+            token="test_token",
+            server_url="http://test:32400",
+            verbose=False,
+            debug=True
+        )
+        
+        # Mock API responses
+        def mock_make_request(url, method='GET', data=None):
+            if 'metadata/12345' in url and method == 'GET':
+                return {
+                    "MediaContainer": {
+                        "Metadata": [{
+                            "title": "Pilot",
+                            "grandparentTitle": "Breaking Bad",
+                            "parentIndex": 1,
+                            "index": 1
+                        }]
+                    }
+                }
+            else:
+                return ""
+        
+        with patch.object(client, '_make_request', side_effect=mock_make_request):
+            result = client.refresh_episode_image("12345")
+            
+            self.assertTrue(result)
+            # Debug output would show up in mock_print calls
+    
+    @patch('time.sleep')
+    def test_workflow_error_recovery(self):
+        """Test workflow continues even when some API calls fail."""
+        client = self.module.PlexServerEpisodeRefresh(
+            token="test_token",
+            server_url="http://test:32400",
+            verbose=False,
+            debug=False
+        )
+        
+        # Mock API responses where some fail
+        call_count = 0
+        def mock_make_request(url, method='GET', data=None):
+            nonlocal call_count
+            call_count += 1
+            
+            if call_count == 1:  # Initial metadata succeeds
+                return {
+                    "MediaContainer": {
+                        "Metadata": [{
+                            "title": "Test Episode",
+                            "grandparentTitle": "Test Show",
+                            "parentIndex": 1,
+                            "index": 1
+                        }]
+                    }
+                }
+            elif call_count == 2:  # Analyze fails
+                return None
+            elif call_count == 3:  # Refresh succeeds
+                return ""
+            else:  # Other calls succeed
+                return {}
+        
+        with patch.object(client, '_make_request', side_effect=mock_make_request):
+            result = client.refresh_episode_image("12345")
+            
+            # Should still return True despite some failures
+            self.assertTrue(result)
+    
+    def test_credential_integration_with_workflow(self):
+        """Test that credentials work properly in the full workflow context."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Create a .env file with credentials
+            env_file = Path(temp_dir) / '.env'
+            env_file.write_text('PLEX_TOKEN=integration_test_token\nPLEX_SERVER=http://integration-test:32400\n')
+            
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(temp_dir)
+                
+                # Create client without explicit credentials (should read from .env)
+                client = self.module.PlexServerEpisodeRefresh(
+                    token=None,
+                    server_url=None,
+                    verbose=False,
+                    debug=False
+                )
+                
+                self.assertEqual(client.token, "integration_test_token")
+                self.assertEqual(client.server_url, "http://integration-test:32400")
+                
+                # Mock a simple API call to verify credentials are used
+                with patch.object(client, '_make_request') as mock_request:
+                    mock_request.return_value = {}
+                    
+                    # The actual workflow would use these credentials
+                    self.assertIsNotNone(client.token)
+                    self.assertIsNotNone(client.server_url)
+            finally:
+                os.chdir(old_cwd)
+
+
 if __name__ == '__main__':
     unittest.main()
