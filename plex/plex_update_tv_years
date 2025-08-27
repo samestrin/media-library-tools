@@ -229,7 +229,7 @@ class TVShowYearUpdater:
     
     def _get_credential_from_sources(self, credential_name: str, cli_value: Optional[str]) -> Optional[str]:
         """
-        Get credential from CLI argument, environment variable, or .env file.
+        Get credential from CLI argument, environment variable, local .env file, or global .env file.
         
         Args:
             credential_name: Name of the credential (e.g., 'TVDB_API_KEY')
@@ -237,6 +237,8 @@ class TVShowYearUpdater:
             
         Returns:
             str: The credential value, or None if not found
+            
+        Priority order: CLI > Environment > Local .env > Global .env
         """
         # First check CLI argument
         if cli_value:
@@ -249,7 +251,7 @@ class TVShowYearUpdater:
             self.log_debug(f"Found {credential_name} in environment variable")
             return env_value.strip('"\'')
         
-        # Finally check .env file
+        # Check local .env file
         env_file = '.env'
         if os.path.exists(env_file):
             try:
@@ -258,10 +260,24 @@ class TVShowYearUpdater:
                         line = line.strip()
                         if line.startswith(f'{credential_name}='):
                             value = line.split('=', 1)[1].strip()
-                            self.log_debug(f"Found {credential_name} in .env file")
+                            self.log_debug(f"Found {credential_name} in local .env file")
                             return value.strip('"\'')
             except (IOError, OSError) as e:
-                self.log_debug(f"Could not read .env file: {e}")
+                self.log_debug(f"Could not read local .env file: {e}")
+        
+        # Finally check global .env file
+        global_env_path = Path.home() / '.media-library-tool' / '.env'
+        if global_env_path.exists():
+            try:
+                with open(global_env_path, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith(f'{credential_name}='):
+                            value = line.split('=', 1)[1].strip()
+                            self.log_debug(f"Found {credential_name} in global .env file")
+                            return value.strip('"\'')
+            except (IOError, OSError) as e:
+                self.log_debug(f"Could not read global .env file: {e}")
         
         return None
     
@@ -511,7 +527,7 @@ class TVShowYearUpdater:
 
 def get_tvdb_key_from_sources(cli_key: Optional[str] = None, debug: bool = False) -> Optional[str]:
     """
-    Get TVDB API key from CLI argument, environment variable, or .env file.
+    Get TVDB API key from CLI argument, environment variable, local .env file, or global .env file.
     
     Args:
         cli_key: API key from CLI argument
@@ -519,21 +535,23 @@ def get_tvdb_key_from_sources(cli_key: Optional[str] = None, debug: bool = False
         
     Returns:
         str: The API key, or None if not found
+        
+    Priority order: CLI > Environment > Local .env > Global .env
     """
     # First check CLI argument
     if cli_key:
         if debug:
-            print("Found TVDB_API_KEY from CLI argument")
+            print("DEBUG: Found TVDB_API_KEY from CLI argument")
         return cli_key.strip('"\'')
     
     # Then check environment variable
     env_key = os.environ.get('TVDB_API_KEY')
     if env_key:
         if debug:
-            print("Found TVDB_API_KEY in environment variable")
+            print("DEBUG: Found TVDB_API_KEY in environment variable")
         return env_key.strip('"\'')
     
-    # Finally check .env file
+    # Check local .env file
     env_file = '.env'
     if os.path.exists(env_file):
         try:
@@ -543,11 +561,27 @@ def get_tvdb_key_from_sources(cli_key: Optional[str] = None, debug: bool = False
                     if line.startswith('TVDB_API_KEY='):
                         key = line.split('=', 1)[1].strip()
                         if debug:
-                            print("Found TVDB_API_KEY in .env file")
+                            print("DEBUG: Found TVDB_API_KEY in local .env file")
                         return key.strip('"\'')
         except (IOError, OSError) as e:
             if debug:
-                print(f"Could not read .env file: {e}")
+                print(f"DEBUG: Could not read local .env file: {e}")
+    
+    # Finally check global .env file
+    global_env_path = Path.home() / '.media-library-tool' / '.env'
+    if global_env_path.exists():
+        try:
+            with open(global_env_path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith('TVDB_API_KEY='):
+                        key = line.split('=', 1)[1].strip()
+                        if debug:
+                            print("DEBUG: Found TVDB_API_KEY in global .env file")
+                        return key.strip('"\'')
+        except (IOError, OSError) as e:
+            if debug:
+                print(f"DEBUG: Could not read global .env file: {e}")
     
     return None
 
