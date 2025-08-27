@@ -10,6 +10,8 @@ CODING_STANDARD.md
 
 # Python cache files
 __pycache__/
+**/__pycache__/
+**/**/__pycache__/
 *.py[cod]
 *.pyo
 *.pyd
@@ -29,6 +31,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
 
 # Test artifacts
 tests/test_data/temp_*
