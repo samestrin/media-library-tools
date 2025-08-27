@@ -1,0 +1,432 @@
+#!/usr/bin/env python3
+"""
+Plex TV Show Year Updater
+Version: 1.0
+Purpose: Update TV show directories with correct release years using TVDB API
+"""
+
+import os
+import sys
+import argparse
+import json
+import urllib.request
+import urllib.parse
+import urllib.error
+import re
+import fcntl
+import tempfile
+import time
+from pathlib import Path
+from typing import Optional, Dict, Any, List, Tuple
+
+VERSION = "1.0"
+
+
+def is_non_interactive() -> bool:
+    """
+    Detect if we're running in a non-interactive environment (e.g., cron job).
+    
+    Returns:
+        bool: True if running non-interactively, False otherwise
+    """
+    # Check if stdin is not a TTY (common in cron jobs)
+    if not sys.stdin.isatty():
+        return True
+    
+    # Check common environment variables that indicate automation
+    automation_vars = ['CRON', 'CI', 'AUTOMATED', 'NON_INTERACTIVE']
+    for var in automation_vars:
+        if os.environ.get(var):
+            return True
+    
+    # Check if TERM is not set (common in cron)
+    if not os.environ.get('TERM'):
+        return True
+    
+    return False
+
+
+class TVDBClient:
+    """Client for interacting with TVDB v4 API."""
+    
+    def __init__(self, api_key: str, debug: bool = False):
+        """
+        Initialize TVDB client with API key.
+        
+        Args:
+            api_key: TVDB API key
+            debug: Enable debug output
+        """
+        self.api_key = api_key
+        self.debug = debug
+        self.base_url = "https://api4.thetvdb.com/v4"
+        self.token = None
+        self.token_expires = 0
+    
+    def login(self) -> bool:
+        """
+        Login to TVDB API and obtain JWT token.
+        
+        Returns:
+            bool: True if login successful, False otherwise
+        """
+        login_url = f"{self.base_url}/login"
+        login_data = {"apikey": self.api_key}
+        
+        try:
+            req = urllib.request.Request(
+                login_url,
+                data=json.dumps(login_data).encode('utf-8'),
+                headers={'Content-Type': 'application/json'}
+            )
+            
+            with urllib.request.urlopen(req) as response:
+                if response.status == 200:
+                    data = json.loads(response.read().decode('utf-8'))
+                    self.token = data['data']['token']
+                    # Token expires in 1 month, we'll cache for 24 hours to be safe
+                    self.token_expires = time.time() + (24 * 60 * 60)
+                    if self.debug:
+                        print("Successfully logged in to TVDB API")
+                    return True
+                else:
+                    if self.debug:
+                        print(f"Login failed with status {response.status}")
+                    return False
+                    
+        except urllib.error.URLError as e:
+            if self.debug:
+                print(f"Login failed with network error: {e}")
+            return False
+        except (json.JSONDecodeError, KeyError) as e:
+            if self.debug:
+                print(f"Login failed with data error: {e}")
+            return False
+    
+    def _ensure_authenticated(self) -> bool:
+        """Ensure we have a valid authentication token."""
+        if not self.token or time.time() >= self.token_expires:
+            return self.login()
+        return True
+    
+    def search_show(self, show_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Search for a TV show by name.
+        
+        Args:
+            show_name: Name of the show to search for
+            
+        Returns:
+            dict: Show data with year information, or None if not found
+        """
+        if not self._ensure_authenticated():
+            return None
+        
+        # Clean up show name for search
+        clean_name = re.sub(r'[^\w\s-]', '', show_name).strip()
+        search_url = f"{self.base_url}/search"
+        params = {'query': clean_name, 'type': 'series'}
+        
+        try:
+            url_with_params = f"{search_url}?{urllib.parse.urlencode(params)}"
+            req = urllib.request.Request(
+                url_with_params,
+                headers={'Authorization': f'Bearer {self.token}'}
+            )
+            
+            with urllib.request.urlopen(req) as response:
+                if response.status == 200:
+                    data = json.loads(response.read().decode('utf-8'))
+                    results = data.get('data', [])
+                    
+                    if results:
+                        # Return first result with year info
+                        best_match = results[0]
+                        if self.debug:
+                            print(f"Found show: {best_match.get('name')} ({best_match.get('year')})")
+                        return best_match
+                    else:
+                        if self.debug:
+                            print(f"No results found for '{show_name}'")
+                        return None
+                else:
+                    if self.debug:
+                        print(f"Search failed with status {response.status}")
+                    return None
+                    
+        except urllib.error.URLError as e:
+            if self.debug:
+                print(f"Search failed with network error: {e}")
+            return None
+        except (json.JSONDecodeError, KeyError) as e:
+            if self.debug:
+                print(f"Search failed with data error: {e}")
+            return None
+
+
+class TVShowYearUpdater:
+    """Main class for updating TV show directories with correct years."""
+    
+    def __init__(self, tvdb_key: str, dry_run: bool = False, force: bool = False, 
+                 verbose: bool = False, debug: bool = False, yes: bool = False):
+        """
+        Initialize the TV Show Year Updater.
+        
+        Args:
+            tvdb_key: TVDB API key
+            dry_run: If True, only show what would be done
+            force: Force execution even if another instance is running
+            verbose: Enable verbose output
+            debug: Enable debug output
+            yes: Skip confirmation prompts
+        """
+        self.tvdb_key = tvdb_key
+        self.dry_run = dry_run
+        self.force = force
+        self.verbose = verbose
+        self.debug = debug
+        self.yes = yes
+        self.lock_file = None
+        self.tvdb_client = TVDBClient(tvdb_key, debug)
+        
+        # Year detection patterns (from plex_make_years)
+        self.year_patterns = [
+            (r'\((\d{4})\)', 'Parentheses format (YYYY)'),
+            (r'\[(\d{4})\]', 'Brackets format [YYYY]'),
+            (r'\.(\d{4})\.', 'Dot separated .YYYY.'),
+            (r'\s(\d{4})\s', 'Space separated YYYY'),
+            (r'-(\d{4})-', 'Dash separated -YYYY-'),
+            (r'_(\d{4})_', 'Underscore separated _YYYY_'),
+            (r'\.(\d{4})$', 'Dot ending .YYYY'),
+            (r'\s(\d{4})$', 'Space ending YYYY'),
+            (r'-(\d{4})$', 'Dash ending -YYYY'),
+            (r'_(\d{4})$', 'Underscore ending _YYYY'),
+            (r'^(\d{4})\.', 'Dot beginning YYYY.'),
+            (r'^(\d{4})\s', 'Space beginning YYYY '),
+            (r'^(\d{4})-', 'Dash beginning YYYY-'),
+            (r'^(\d{4})_', 'Underscore beginning YYYY_'),
+            (r'\b(\d{4})\b', 'Standalone year YYYY'),
+        ]
+        
+        # Statistics
+        self.stats = {
+            'directories_processed': 0,
+            'directories_renamed': 0,
+            'directories_skipped': 0,
+            'api_errors': 0,
+            'file_errors': 0
+        }
+    
+    def log_verbose(self, message: str) -> None:
+        """Log verbose message if verbose mode is enabled."""
+        if self.verbose:
+            print(f"📄 {message}")
+    
+    def log_debug(self, message: str) -> None:
+        """Log debug message if debug mode is enabled."""
+        if self.debug:
+            print(f"🐛 {message}")
+    
+    def _get_credential_from_sources(self, credential_name: str, cli_value: Optional[str]) -> Optional[str]:
+        """
+        Get credential from CLI argument, environment variable, or .env file.
+        
+        Args:
+            credential_name: Name of the credential (e.g., 'TVDB_API_KEY')
+            cli_value: Value from CLI argument (takes priority)
+            
+        Returns:
+            str: The credential value, or None if not found
+        """
+        # First check CLI argument
+        if cli_value:
+            self.log_debug(f"Found {credential_name} from CLI argument")
+            return cli_value.strip('"\'')
+        
+        # Then check environment variable
+        env_value = os.environ.get(credential_name)
+        if env_value:
+            self.log_debug(f"Found {credential_name} in environment variable")
+            return env_value.strip('"\'')
+        
+        # Finally check .env file
+        env_file = '.env'
+        if os.path.exists(env_file):
+            try:
+                with open(env_file, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith(f'{credential_name}='):
+                            value = line.split('=', 1)[1].strip()
+                            self.log_debug(f"Found {credential_name} in .env file")
+                            return value.strip('"\'')
+            except (IOError, OSError) as e:
+                self.log_debug(f"Could not read .env file: {e}")
+        
+        return None
+    
+    def extract_year_from_name(self, directory_name: str) -> Optional[int]:
+        """
+        Extract year from directory name using regex patterns.
+        
+        Args:
+            directory_name: Name of the directory
+            
+        Returns:
+            int: Extracted year, or None if no year found
+        """
+        for pattern, description in self.year_patterns:
+            match = re.search(pattern, directory_name)
+            if match:
+                year = int(match.group(1))
+                if 1900 <= year <= 2030:  # Reasonable year range
+                    self.log_debug(f"Extracted year {year} using {description}")
+                    return year
+        return None
+    
+    def clean_show_name(self, directory_name: str) -> str:
+        """
+        Clean show name for TVDB search by removing year and common patterns.
+        
+        Args:
+            directory_name: Original directory name
+            
+        Returns:
+            str: Cleaned show name suitable for searching
+        """
+        # Remove year patterns
+        cleaned = directory_name
+        for pattern, _ in self.year_patterns:
+            cleaned = re.sub(pattern, '', cleaned)
+        
+        # Clean up extra spaces and punctuation
+        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+        cleaned = re.sub(r'[._-]+$', '', cleaned)  # Remove trailing punctuation
+        cleaned = re.sub(r'^[._-]+', '', cleaned)  # Remove leading punctuation
+        
+        return cleaned
+
+
+def get_tvdb_key_from_sources(cli_key: Optional[str] = None, debug: bool = False) -> Optional[str]:
+    """
+    Get TVDB API key from CLI argument, environment variable, or .env file.
+    
+    Args:
+        cli_key: API key from CLI argument
+        debug: Enable debug output
+        
+    Returns:
+        str: The API key, or None if not found
+    """
+    # First check CLI argument
+    if cli_key:
+        if debug:
+            print("Found TVDB_API_KEY from CLI argument")
+        return cli_key.strip('"\'')
+    
+    # Then check environment variable
+    env_key = os.environ.get('TVDB_API_KEY')
+    if env_key:
+        if debug:
+            print("Found TVDB_API_KEY in environment variable")
+        return env_key.strip('"\'')
+    
+    # Finally check .env file
+    env_file = '.env'
+    if os.path.exists(env_file):
+        try:
+            with open(env_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith('TVDB_API_KEY='):
+                        key = line.split('=', 1)[1].strip()
+                        if debug:
+                            print("Found TVDB_API_KEY in .env file")
+                        return key.strip('"\'')
+        except (IOError, OSError) as e:
+            if debug:
+                print(f"Could not read .env file: {e}")
+    
+    return None
+
+
+def main():
+    """Main entry point."""
+    parser = argparse.ArgumentParser(
+        description='Update TV show directories with correct release years using TVDB API',
+        epilog='''
+Examples:
+  %(prog)s /path/to/tv/shows --dry-run
+  %(prog)s /path/to/tv/shows --tvdb-key YOUR_API_KEY
+  %(prog)s /path/to/tv/shows -y --verbose
+
+Cron Usage:
+  # Run daily at 3 AM (non-interactive)
+  0 3 * * * /usr/local/bin/plex_update_tv_years /path/to/tv/shows -y
+
+The script will scan TV show directories, look up correct years via TVDB API,
+and rename directories to "Show Title (YEAR)" format.
+        ''',
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    
+    parser.add_argument('path', nargs='?', default='.',
+                        help='Directory to process (default: current directory)')
+    parser.add_argument('--tvdb-key', 
+                        help='TVDB API key (can also use TVDB_API_KEY env var or .env file)')
+    parser.add_argument('--dry-run', action='store_true',
+                        help='Show what would be renamed without making changes (default: true)')
+    parser.add_argument('-y', '--yes', action='store_true',
+                        help='Skip confirmation prompts (for non-interactive use)')
+    parser.add_argument('--force', action='store_true',
+                        help='Force execution even if another instance is running')
+    parser.add_argument('--verbose', '-v', action='store_true',
+                        help='Show verbose output')
+    parser.add_argument('--debug', action='store_true',
+                        help='Show detailed debug output')
+    parser.add_argument('--version', action='version', version=f'%(prog)s v{VERSION}')
+    
+    args = parser.parse_args()
+    
+    # Validate arguments
+    if args.yes and args.dry_run:
+        print("Warning: -y/--yes flag has no effect in dry-run mode", file=sys.stderr)
+    
+    # Get TVDB API key
+    tvdb_key = get_tvdb_key_from_sources(args.tvdb_key, args.debug)
+    if not tvdb_key:
+        print("❌ TVDB_API_KEY not found. Please provide via --tvdb-key argument, "
+              "TVDB_API_KEY environment variable, or .env file", file=sys.stderr)
+        sys.exit(1)
+    
+    # Display header
+    print(f"Plex TV Show Year Updater v{VERSION}")
+    print("=" * 50)
+    
+    if args.dry_run:
+        print("🔍 DRY-RUN MODE: No changes will be made")
+    
+    try:
+        updater = TVShowYearUpdater(
+            tvdb_key=tvdb_key,
+            dry_run=args.dry_run,
+            force=args.force,
+            verbose=args.verbose,
+            debug=args.debug,
+            yes=args.yes
+        )
+        
+        # TODO: Implement main processing logic in next phase
+        print("🚧 Tool structure created successfully!")
+        print("📋 Next phase will implement TVDB API integration and directory processing.")
+        
+    except KeyboardInterrupt:
+        print("\n⚠️ Operation cancelled by user")
+        sys.exit(1)
+    except Exception as e:
+        print(f"❌ Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()
