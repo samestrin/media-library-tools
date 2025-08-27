@@ -27,38 +27,55 @@ except ImportError:
     MediaLibraryTestCase = unittest.TestCase
     TEST_HELPERS_AVAILABLE = False
 
-# Import tool classes with error handling
-try:
-    from sabnzbd_cleanup import SABnzbdDetector, get_dir_size, parse_size_threshold
-except ImportError:
-    SABnzbdDetector = None
-    get_dir_size = None
-    parse_size_threshold = None
+# Dynamic tool loading for files without .py extension
+import importlib.util
+import tempfile
 
-try:
-    from plex_movie_subdir_renamer import PlexMovieSubdirRenamer
-except ImportError:
-    PlexMovieSubdirRenamer = None
+def load_tool(tool_category, tool_name):
+    """Load tool dynamically from category directory."""
+    try:
+        tool_path = Path(__file__).parent.parent.parent / tool_category / tool_name
+        if not tool_path.exists():
+            return None
+        
+        # Copy to temp file with .py extension
+        temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False)
+        with open(tool_path, 'r') as f:
+            temp_file.write(f.read())
+        temp_file.close()
+        
+        # Load as module
+        spec = importlib.util.spec_from_file_location(tool_name, temp_file.name)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        
+        # Clean up temp file
+        os.unlink(temp_file.name)
+        
+        return module
+    except Exception:
+        return None
 
-try:
-    from plex_make_dirs import PlexDirectoryCreator
-except ImportError:
-    PlexDirectoryCreator = None
+# Load tool classes with error handling
+sabnzbd_module = load_tool('SABnzbd', 'sabnzbd_cleanup')
+SABnzbdDetector = getattr(sabnzbd_module, 'SABnzbdDetector', None) if sabnzbd_module else None
+get_dir_size = getattr(sabnzbd_module, 'get_dir_size', None) if sabnzbd_module else None
+parse_size_threshold = getattr(sabnzbd_module, 'parse_size_threshold', None) if sabnzbd_module else None
 
-try:
-    from plex_make_seasons import SeasonOrganizer
-except ImportError:
-    SeasonOrganizer = None
+plex_renamer_module = load_tool('plex', 'plex_movie_subdir_renamer')
+PlexMovieSubdirRenamer = getattr(plex_renamer_module, 'PlexMovieSubdirRenamer', None) if plex_renamer_module else None
 
-try:
-    from plex_make_all_seasons import SeasonOrganizer as BatchSeasonOrganizer
-except ImportError:
-    BatchSeasonOrganizer = None
+plex_dirs_module = load_tool('plex', 'plex_make_dirs')
+PlexDirectoryCreator = getattr(plex_dirs_module, 'PlexDirectoryCreator', None) if plex_dirs_module else None
 
-try:
-    from plex_move_movie_extras import PlexMovieExtrasOrganizer
-except ImportError:
-    PlexMovieExtrasOrganizer = None
+plex_seasons_module = load_tool('plex', 'plex_make_seasons')
+SeasonOrganizer = getattr(plex_seasons_module, 'SeasonOrganizer', None) if plex_seasons_module else None
+
+plex_batch_module = load_tool('plex', 'plex_make_all_seasons')
+BatchSeasonOrganizer = getattr(plex_batch_module, 'SeasonOrganizer', None) if plex_batch_module else None
+
+plex_extras_module = load_tool('plex', 'plex_move_movie_extras')
+PlexMovieExtrasOrganizer = getattr(plex_extras_module, 'PlexMovieExtrasOrganizer', None) if plex_extras_module else None
 
 
 @unittest.skipIf(not TEST_HELPERS_AVAILABLE, "Test helpers not available")

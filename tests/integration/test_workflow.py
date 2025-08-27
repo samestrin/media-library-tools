@@ -68,15 +68,11 @@ PlexDirectoryCreator = getattr(plex_dirs_module, 'PlexDirectoryCreator', None) i
 plex_seasons_module = load_tool('plex', 'plex_make_seasons')
 SeasonOrganizer = getattr(plex_seasons_module, 'SeasonOrganizer', None) if plex_seasons_module else None
 
-try:
-    from plex_make_all_seasons import SeasonOrganizer as BatchSeasonOrganizer
-except ImportError:
-    BatchSeasonOrganizer = None
+plex_batch_module = load_tool('plex', 'plex_make_all_seasons')
+BatchSeasonOrganizer = getattr(plex_batch_module, 'SeasonOrganizer', None) if plex_batch_module else None
 
-try:
-    from plex_move_movie_extras import PlexMovieExtrasOrganizer
-except ImportError:
-    PlexMovieExtrasOrganizer = None
+plex_extras_module = load_tool('plex', 'plex_move_movie_extras')
+PlexMovieExtrasOrganizer = getattr(plex_extras_module, 'PlexMovieExtrasOrganizer', None) if plex_extras_module else None
 
 
 @unittest.skipIf(SABnzbdDetector is None or not TEST_HELPERS_AVAILABLE, "Required modules not available")

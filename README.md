@@ -4,6 +4,8 @@
 ╹ ╹┗━╸╺┻┛╹╹ ╹┗━╸╹┗━┛╹┗╸╹ ╹╹┗╸ ╹  ╹ ┗━┛┗━┛┗━╸┗━┛                              
 ```                                             
 # Media Library Tools
+[![Star on GitHub](https://img.shields.io/github/stars/samestrin/media-library-tools?style=social)](https://github.com/samestrin/media-library-tools/stargazers) [![Fork on GitHub](https://img.shields.io/github/forks/samestrin/media-library-tools?style=social)](https://github.com/samestrin/media-library-tools/network/members) [![Watch on GitHub](https://img.shields.io/github/watchers/samestrin/media-library-tools?style=social)](https://github.com/samestrin/media-library-tools/watchers)
+![Version 1.0.0-beta](https://img.shields.io/badge/Version-1.0.0--beta-orange) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Built with Python](https://img.shields.io/badge/Built%20with-Python-green)](https://python.org/)
 
 A comprehensive collection of self-contained Python CLI tools for managing and organizing media libraries across Plex, SABnzbd, and other media applications. Each tool is designed as a standalone script requiring no external dependencies, focusing on safety, automation, and consistent user experience.
 
@@ -34,7 +36,8 @@ media-library-tools/
 │   │   ├── plex_make_seasons.md              # TV show season organization documentation
 │   │   ├── plex_make_years.md                # Year-based organization documentation
 │   │   ├── plex_move_movie_extras.md         # Movie extras organization documentation
-│   │   └── plex_movie_subdir_renamer.md      # Movie subdirectory renaming documentation
+│   │   ├── plex_movie_subdir_renamer.md      # Movie subdirectory renaming documentation
+│   │   └── plex_update_tv_years.md           # TV show year updater documentation
 │   ├── plex_correct_dirs                     # Directory name sanitization tool
 │   ├── plex_make_all_seasons                 # Batch season processing tool
 │   ├── plex_make_dirs                        # Directory structure creation tool
@@ -42,6 +45,7 @@ media-library-tools/
 │   ├── plex_make_years                       # Year-based organization tool
 │   ├── plex_move_movie_extras                # Movie extras organization tool
 │   ├── plex_movie_subdir_renamer             # Movie subdirectory renaming tool
+│   ├── plex_update_tv_years                  # TV show year updater tool
 │   └── README.md                             # Plex tools overview
 ├── plex-api/                                 # Plex server management tools
 │   ├── docs/                                 # Documentation for Plex API tools
@@ -102,6 +106,7 @@ Comprehensive tools for organizing media libraries according to Plex naming conv
 - `plex_make_years` - Year-based movie organization
 - `plex_move_movie_extras` - Movie extras management and relocation
 - `plex_movie_subdir_renamer` - Movie subdirectory renaming
+- `plex_update_tv_years` - Update TV show year metadata
 
 **Key Capabilities:**
 - Directory name sanitization and cleanup
@@ -126,7 +131,7 @@ Comprehensive tools for organizing media libraries according to Plex naming conv
 ### Individual tool download (Recommended)
 ```bash
 # Download any single tool and run immediately
-wget https://raw.githubusercontent.com/[your-username]/media-library-tools/main/SABnzbd/sabnzbd_cleanup
+wget https://raw.githubusercontent.com/samestrin/media-library-tools/main/SABnzbd/sabnzbd_cleanup
 chmod +x sabnzbd_cleanup
 ./sabnzbd_cleanup --help
 
@@ -137,7 +142,7 @@ chmod +x sabnzbd_cleanup
 ### Full repository
 ```bash
 # Clone entire repository
-git clone https://github.com/[your-username]/media-library-tools.git
+git clone https://github.com/samestrin/media-library-tools.git
 cd media-library-tools
 chmod +x SABnzbd/sabnzbd_cleanup plex/plex_* plex-api/plex_*
 ```
@@ -285,8 +290,6 @@ Use the `-y` or `--yes` flag to skip confirmation prompts:
 3. **Check results**: Review what will be changed before proceeding
 4. **Backup important data**: Especially before bulk operations
 
-
-
 ## Project status
 
 | Component | Status | Language | Features |
@@ -338,6 +341,10 @@ When reporting issues, please include:
 - Sample directory structure (if relevant)
 - Output from `--debug --verbose` mode
 
+## Share
+
+[![Twitter](https://img.shields.io/badge/X-Tweet-blue)](https://twitter.com/intent/tweet?text=Check%20out%20this%20awesome%20project!&url=https://github.com/samestrin/media-library-tools) [![Facebook](https://img.shields.io/badge/Facebook-Share-blue)](https://www.facebook.com/sharer/sharer.php?u=https://github.com/samestrin/media-library-tools) [![LinkedIn](https://img.shields.io/badge/LinkedIn-Share-blue)](https://www.linkedin.com/sharing/share-offsite/?url=https://github.com/samestrin/media-library-tools)
+
 ---
 
-**Note**: This project prioritizes safety and data integrity. All tools are designed to be conservative and require explicit user confirmation for destructive operations. Always backup your media libraries before running bulk operations.
+**Note**: This project prioritizes **safety and data integrity**. All tools are designed to be conservative and require explicit user confirmation for destructive operations. _Always **backup** your media libraries before running bulk operations._

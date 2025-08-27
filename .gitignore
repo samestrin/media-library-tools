@@ -2,6 +2,7 @@
 planning/
 QWEN.md
 CLAUDE.md
+GEMINI.md
 project_rules.md
 .claude
 .env

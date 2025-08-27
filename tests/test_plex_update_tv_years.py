@@ -31,14 +31,27 @@ def load_plex_update_tv_years():
     if not script_path.exists():
         return None
     
-    spec = importlib.util.spec_from_file_location("plex_update_tv_years", script_path)
-    if spec is None or spec.loader is None:
-        return None
+    # Copy the script to a temporary .py file for import
+    import shutil
+    temp_script_path = Path(__file__).parent / 'temp_plex_update_tv_years.py'
     
-    module = importlib.util.module_from_spec(spec)
-    sys.modules['plex_update_tv_years'] = module
-    spec.loader.exec_module(module)
-    return module
+    try:
+        shutil.copy2(script_path, temp_script_path)
+        
+        spec = importlib.util.spec_from_file_location("plex_update_tv_years", temp_script_path)
+        if spec is None or spec.loader is None:
+            return None
+        
+        module = importlib.util.module_from_spec(spec)
+        sys.modules['plex_update_tv_years'] = module
+        spec.loader.exec_module(module)
+        
+        return module
+    except Exception as e:
+        return None
+    finally:
+        # Clean up the temporary file
+        temp_script_path.unlink(missing_ok=True)
 
 
 class TestCredentialHandling(MediaLibraryTestCase):
