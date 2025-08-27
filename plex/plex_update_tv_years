@@ -305,6 +305,208 @@ class TVShowYearUpdater:
         cleaned = re.sub(r'^[._-]+', '', cleaned)  # Remove leading punctuation
         
         return cleaned
+    
+    def acquire_lock(self, lock_dir: Path) -> bool:
+        """
+        Acquire file lock to prevent concurrent executions.
+        
+        Args:
+            lock_dir: Directory to store lock file
+            
+        Returns:
+            bool: True if lock acquired, False otherwise
+        """
+        try:
+            lock_file_path = lock_dir / f"plex_update_tv_years_{os.getpid()}.lock"
+            self.lock_file = open(lock_file_path, 'w')
+            fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self.lock_file.write(f"{os.getpid()}\n{time.time()}")
+            self.lock_file.flush()
+            self.log_debug(f"Lock acquired: {lock_file_path}")
+            return True
+        except (OSError, IOError) as e:
+            if not self.force:
+                print(f"❌ Another instance is running. Use --force to override. ({e})")
+                return False
+            else:
+                self.log_debug(f"Forced execution despite lock error: {e}")
+                return True
+    
+    def release_lock(self) -> None:
+        """Release the file lock."""
+        if self.lock_file:
+            try:
+                fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
+                self.lock_file.close()
+                # Clean up lock file
+                if hasattr(self.lock_file, 'name'):
+                    os.unlink(self.lock_file.name)
+                self.log_debug("Lock released")
+            except (OSError, IOError) as e:
+                self.log_debug(f"Error releasing lock: {e}")
+            finally:
+                self.lock_file = None
+    
+    def needs_year_update(self, directory_name: str, tvdb_year: int) -> Tuple[bool, Optional[int]]:
+        """
+        Check if directory needs year update.
+        
+        Args:
+            directory_name: Current directory name
+            tvdb_year: Year from TVDB
+            
+        Returns:
+            tuple: (needs_update, current_year_or_none)
+        """
+        current_year = self.extract_year_from_name(directory_name)
+        
+        if current_year is None:
+            # No year in current name, needs update
+            return True, None
+        
+        if current_year != tvdb_year:
+            # Wrong year, needs update
+            return True, current_year
+        
+        # Correct year already present
+        return False, current_year
+    
+    def generate_new_name(self, clean_show_name: str, year: int) -> str:
+        """
+        Generate new directory name in 'Show Title (YEAR)' format.
+        
+        Args:
+            clean_show_name: Clean show name without year
+            year: Year to add
+            
+        Returns:
+            str: New directory name
+        """
+        return f"{clean_show_name} ({year})"
+    
+    def process_directory(self, target_path: Path) -> None:
+        """
+        Process the target directory to update TV show years.
+        
+        Args:
+            target_path: Path to directory containing TV shows
+        """
+        self.log_verbose(f"Processing directory: {target_path}")
+        
+        # Acquire lock
+        lock_dir = Path(tempfile.gettempdir())
+        if not self.acquire_lock(lock_dir):
+            return
+        
+        try:
+            # Get all subdirectories (potential TV shows)
+            tv_directories = [d for d in target_path.iterdir() 
+                            if d.is_dir() and not d.name.startswith('.')]
+            
+            if not tv_directories:
+                print("📁 No directories found to process")
+                return
+            
+            print(f"📁 Found {len(tv_directories)} directories to analyze")
+            
+            if not self.dry_run and not self.yes and not is_non_interactive():
+                response = input(f"\nProceed with analyzing {len(tv_directories)} directories? [y/N]: ")
+                if response.lower() not in ['y', 'yes']:
+                    print("Operation cancelled.")
+                    return
+            elif self.yes or is_non_interactive():
+                print("Proceeding with directory analysis...")
+            
+            # Process each directory
+            for i, tv_dir in enumerate(tv_directories, 1):
+                self.stats['directories_processed'] += 1
+                
+                print(f"\n[{i}/{len(tv_directories)}] 📺 {tv_dir.name}")
+                self.log_verbose(f"Processing: {tv_dir.name}")
+                
+                # Extract clean show name for TVDB search
+                clean_name = self.clean_show_name(tv_dir.name)
+                self.log_debug(f"Clean name for search: '{clean_name}'")
+                
+                if not clean_name:
+                    print("  ⚠️ Could not extract show name, skipping")
+                    self.stats['directories_skipped'] += 1
+                    continue
+                
+                # Search TVDB for show information
+                try:
+                    show_data = self.tvdb_client.search_show(clean_name)
+                    if not show_data:
+                        print(f"  ❌ No TVDB results found for '{clean_name}'")
+                        self.stats['api_errors'] += 1
+                        continue
+                    
+                    tvdb_year = show_data.get('year')
+                    if not tvdb_year:
+                        print(f"  ⚠️ No year information available in TVDB")
+                        self.stats['api_errors'] += 1
+                        continue
+                    
+                    # Check if update is needed
+                    needs_update, current_year = self.needs_year_update(tv_dir.name, tvdb_year)
+                    
+                    if not needs_update:
+                        print(f"  ✅ Already has correct year ({tvdb_year})")
+                        continue
+                    
+                    # Generate new name
+                    new_name = self.generate_new_name(clean_name, tvdb_year)
+                    new_path = tv_dir.parent / new_name
+                    
+                    if current_year:
+                        print(f"  🔄 Would change year: {current_year} → {tvdb_year}")
+                    else:
+                        print(f"  ➕ Would add year: {tvdb_year}")
+                    
+                    print(f"  📝 New name: {new_name}")
+                    
+                    # Check if target already exists
+                    if new_path.exists():
+                        print(f"  🚫 Target directory already exists: {new_name}")
+                        self.stats['file_errors'] += 1
+                        continue
+                    
+                    # Perform the rename (if not dry-run)
+                    if not self.dry_run:
+                        try:
+                            tv_dir.rename(new_path)
+                            print(f"  ✅ Renamed successfully")
+                            self.stats['directories_renamed'] += 1
+                        except OSError as e:
+                            print(f"  ❌ Failed to rename: {e}")
+                            self.stats['file_errors'] += 1
+                    else:
+                        print(f"  🔍 DRY RUN: Would rename to '{new_name}'")
+                        self.stats['directories_renamed'] += 1
+                    
+                    # Small delay to be respectful to TVDB API
+                    time.sleep(0.5)
+                    
+                except Exception as e:
+                    print(f"  ❌ Error processing directory: {e}")
+                    self.stats['api_errors'] += 1
+                    self.log_debug(f"Error details: {e}")
+            
+            # Display final statistics
+            self.display_statistics()
+            
+        finally:
+            self.release_lock()
+    
+    def display_statistics(self) -> None:
+        """Display processing statistics."""
+        print(f"\n✨ Processing complete!")
+        print(f"📊 Statistics:")
+        print(f"   📁 Directories processed: {self.stats['directories_processed']}")
+        print(f"   🔄 Directories renamed: {self.stats['directories_renamed']}")
+        print(f"   ⏭️ Directories skipped: {self.stats['directories_skipped']}")
+        print(f"   🌐 API errors: {self.stats['api_errors']}")
+        print(f"   💾 File errors: {self.stats['file_errors']}")
 
 
 def get_tvdb_key_from_sources(cli_key: Optional[str] = None, debug: bool = False) -> Optional[str]:
@@ -374,8 +576,10 @@ and rename directories to "Show Title (YEAR)" format.
                         help='Directory to process (default: current directory)')
     parser.add_argument('--tvdb-key', 
                         help='TVDB API key (can also use TVDB_API_KEY env var or .env file)')
-    parser.add_argument('--dry-run', action='store_true',
+    parser.add_argument('--dry-run', action='store_true', default=True,
                         help='Show what would be renamed without making changes (default: true)')
+    parser.add_argument('--execute', action='store_true',
+                        help='Actually perform the renaming operations (overrides --dry-run)')
     parser.add_argument('-y', '--yes', action='store_true',
                         help='Skip confirmation prompts (for non-interactive use)')
     parser.add_argument('--force', action='store_true',
@@ -388,8 +592,14 @@ and rename directories to "Show Title (YEAR)" format.
     
     args = parser.parse_args()
     
+    # Handle dry-run/execute logic
+    if args.execute:
+        dry_run_mode = False
+    else:
+        dry_run_mode = args.dry_run  # This is True by default
+    
     # Validate arguments
-    if args.yes and args.dry_run:
+    if args.yes and dry_run_mode:
         print("Warning: -y/--yes flag has no effect in dry-run mode", file=sys.stderr)
     
     # Get TVDB API key
@@ -403,22 +613,32 @@ and rename directories to "Show Title (YEAR)" format.
     print(f"Plex TV Show Year Updater v{VERSION}")
     print("=" * 50)
     
-    if args.dry_run:
+    if dry_run_mode:
         print("🔍 DRY-RUN MODE: No changes will be made")
+    else:
+        print("⚡ EXECUTE MODE: Changes will be made to directories")
     
     try:
         updater = TVShowYearUpdater(
             tvdb_key=tvdb_key,
-            dry_run=args.dry_run,
+            dry_run=dry_run_mode,
             force=args.force,
             verbose=args.verbose,
             debug=args.debug,
             yes=args.yes
         )
         
-        # TODO: Implement main processing logic in next phase
-        print("🚧 Tool structure created successfully!")
-        print("📋 Next phase will implement TVDB API integration and directory processing.")
+        # Process the target directory
+        target_path = Path(args.path).resolve()
+        if not target_path.exists():
+            print(f"❌ Error: Path '{target_path}' does not exist", file=sys.stderr)
+            sys.exit(1)
+        
+        if not target_path.is_dir():
+            print(f"❌ Error: Path '{target_path}' is not a directory", file=sys.stderr)
+            sys.exit(1)
+        
+        updater.process_directory(target_path)
         
     except KeyboardInterrupt:
         print("\n⚠️ Operation cancelled by user")
