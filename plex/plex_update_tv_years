@@ -220,12 +220,12 @@ class TVShowYearUpdater:
     def log_verbose(self, message: str) -> None:
         """Log verbose message if verbose mode is enabled."""
         if self.verbose:
-            print(f"📄 {message}")
+            print(f"VERBOSE: {message}")
     
     def log_debug(self, message: str) -> None:
         """Log debug message if debug mode is enabled."""
         if self.debug:
-            print(f"🐛 {message}")
+            print(f"DEBUG: {message}")
     
     def _get_credential_from_sources(self, credential_name: str, cli_value: Optional[str]) -> Optional[str]:
         """
@@ -326,7 +326,7 @@ class TVShowYearUpdater:
             return True
         except (OSError, IOError) as e:
             if not self.force:
-                print(f"❌ Another instance is running. Use --force to override. ({e})")
+                print(f"Error: Another instance is running. Use --force to override. ({e})")
                 return False
             else:
                 self.log_debug(f"Forced execution despite lock error: {e}")
@@ -404,10 +404,10 @@ class TVShowYearUpdater:
                             if d.is_dir() and not d.name.startswith('.')]
             
             if not tv_directories:
-                print("📁 No directories found to process")
+                print("No directories found to process")
                 return
             
-            print(f"📁 Found {len(tv_directories)} directories to analyze")
+            print(f"Found {len(tv_directories)} directories to analyze")
             
             if not self.dry_run and not self.yes and not is_non_interactive():
                 response = input(f"\nProceed with analyzing {len(tv_directories)} directories? [y/N]: ")
@@ -421,7 +421,7 @@ class TVShowYearUpdater:
             for i, tv_dir in enumerate(tv_directories, 1):
                 self.stats['directories_processed'] += 1
                 
-                print(f"\n[{i}/{len(tv_directories)}] 📺 {tv_dir.name}")
+                print(f"\n[{i}/{len(tv_directories)}] {tv_dir.name}")
                 self.log_verbose(f"Processing: {tv_dir.name}")
                 
                 # Extract clean show name for TVDB search
@@ -429,7 +429,7 @@ class TVShowYearUpdater:
                 self.log_debug(f"Clean name for search: '{clean_name}'")
                 
                 if not clean_name:
-                    print("  ⚠️ Could not extract show name, skipping")
+                    print("  WARNING: Could not extract show name, skipping")
                     self.stats['directories_skipped'] += 1
                     continue
                 
@@ -437,13 +437,13 @@ class TVShowYearUpdater:
                 try:
                     show_data = self.tvdb_client.search_show(clean_name)
                     if not show_data:
-                        print(f"  ❌ No TVDB results found for '{clean_name}'")
+                        print(f"  ERROR: No TVDB results found for '{clean_name}'")
                         self.stats['api_errors'] += 1
                         continue
                     
                     tvdb_year = show_data.get('year')
                     if not tvdb_year:
-                        print(f"  ⚠️ No year information available in TVDB")
+                        print(f"  WARNING: No year information available in TVDB")
                         self.stats['api_errors'] += 1
                         continue
                     
@@ -451,7 +451,7 @@ class TVShowYearUpdater:
                     needs_update, current_year = self.needs_year_update(tv_dir.name, tvdb_year)
                     
                     if not needs_update:
-                        print(f"  ✅ Already has correct year ({tvdb_year})")
+                        print(f"  Already has correct year ({tvdb_year})")
                         continue
                     
                     # Generate new name
@@ -459,15 +459,15 @@ class TVShowYearUpdater:
                     new_path = tv_dir.parent / new_name
                     
                     if current_year:
-                        print(f"  🔄 Would change year: {current_year} → {tvdb_year}")
+                        print(f"  Would change year: {current_year} → {tvdb_year}")
                     else:
-                        print(f"  ➕ Would add year: {tvdb_year}")
+                        print(f"  Would add year: {tvdb_year}")
                     
-                    print(f"  📝 New name: {new_name}")
+                    print(f"  New name: {new_name}")
                     
                     # Check if target already exists
                     if new_path.exists():
-                        print(f"  🚫 Target directory already exists: {new_name}")
+                        print(f"  ERROR: Target directory already exists: {new_name}")
                         self.stats['file_errors'] += 1
                         continue
                     
@@ -475,20 +475,20 @@ class TVShowYearUpdater:
                     if not self.dry_run:
                         try:
                             tv_dir.rename(new_path)
-                            print(f"  ✅ Renamed successfully")
+                            print(f"  SUCCESS: Renamed successfully")
                             self.stats['directories_renamed'] += 1
                         except OSError as e:
-                            print(f"  ❌ Failed to rename: {e}")
+                            print(f"  ERROR: Failed to rename: {e}")
                             self.stats['file_errors'] += 1
                     else:
-                        print(f"  🔍 DRY RUN: Would rename to '{new_name}'")
+                        print(f"  DRY RUN: Would rename to '{new_name}'")
                         self.stats['directories_renamed'] += 1
                     
                     # Small delay to be respectful to TVDB API
                     time.sleep(0.5)
                     
                 except Exception as e:
-                    print(f"  ❌ Error processing directory: {e}")
+                    print(f"  ERROR: Error processing directory: {e}")
                     self.stats['api_errors'] += 1
                     self.log_debug(f"Error details: {e}")
             
@@ -500,13 +500,13 @@ class TVShowYearUpdater:
     
     def display_statistics(self) -> None:
         """Display processing statistics."""
-        print(f"\n✨ Processing complete!")
-        print(f"📊 Statistics:")
-        print(f"   📁 Directories processed: {self.stats['directories_processed']}")
-        print(f"   🔄 Directories renamed: {self.stats['directories_renamed']}")
-        print(f"   ⏭️ Directories skipped: {self.stats['directories_skipped']}")
-        print(f"   🌐 API errors: {self.stats['api_errors']}")
-        print(f"   💾 File errors: {self.stats['file_errors']}")
+        print(f"\nProcessing complete!")
+        print(f"Statistics:")
+        print(f"   Directories processed: {self.stats['directories_processed']}")
+        print(f"   Directories renamed: {self.stats['directories_renamed']}")
+        print(f"   Directories skipped: {self.stats['directories_skipped']}")
+        print(f"   API errors: {self.stats['api_errors']}")
+        print(f"   File errors: {self.stats['file_errors']}")
 
 
 def get_tvdb_key_from_sources(cli_key: Optional[str] = None, debug: bool = False) -> Optional[str]:
@@ -605,7 +605,7 @@ and rename directories to "Show Title (YEAR)" format.
     # Get TVDB API key
     tvdb_key = get_tvdb_key_from_sources(args.tvdb_key, args.debug)
     if not tvdb_key:
-        print("❌ TVDB_API_KEY not found. Please provide via --tvdb-key argument, "
+        print("Error: TVDB_API_KEY not found. Please provide via --tvdb-key argument, "
               "TVDB_API_KEY environment variable, or .env file", file=sys.stderr)
         sys.exit(1)
     
@@ -614,9 +614,9 @@ and rename directories to "Show Title (YEAR)" format.
     print("=" * 50)
     
     if dry_run_mode:
-        print("🔍 DRY-RUN MODE: No changes will be made")
+        print("DRY-RUN MODE: No changes will be made")
     else:
-        print("⚡ EXECUTE MODE: Changes will be made to directories")
+        print("EXECUTE MODE: Changes will be made to directories")
     
     try:
         updater = TVShowYearUpdater(
@@ -641,10 +641,10 @@ and rename directories to "Show Title (YEAR)" format.
         updater.process_directory(target_path)
         
     except KeyboardInterrupt:
-        print("\n⚠️ Operation cancelled by user")
+        print("\nOperation cancelled by user")
         sys.exit(1)
     except Exception as e:
-        print(f"❌ Error: {e}", file=sys.stderr)
+        print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
 
