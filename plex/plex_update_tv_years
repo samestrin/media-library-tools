@@ -46,6 +46,84 @@ def is_non_interactive() -> bool:
     return False
 
 
+def retry_with_backoff(max_retries: int = 3, base_delay: float = 1.0, multiplier: float = 2.0, max_delay: float = 30.0):
+    """
+    Decorator to retry function calls with exponential backoff.
+    
+    Args:
+        max_retries: Maximum number of retry attempts
+        base_delay: Base delay in seconds before first retry
+        multiplier: Multiplier for exponential backoff
+        max_delay: Maximum delay between retries
+    
+    Returns:
+        Decorated function with retry logic
+    """
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            import random
+            
+            last_exception = None
+            for attempt in range(max_retries + 1):
+                try:
+                    result = func(*args, **kwargs)
+                    # Track successful retry if this wasn't the first attempt
+                    if attempt > 0 and args and hasattr(args[0], 'retry_successes'):
+                        args[0].retry_successes += 1
+                    return result
+                except (urllib.error.HTTPError, urllib.error.URLError, ConnectionError, OSError) as e:
+                    last_exception = e
+                    
+                    # Don't retry on final attempt
+                    if attempt == max_retries:
+                        break
+                    
+                    # Determine if error is retriable
+                    if isinstance(e, urllib.error.HTTPError):
+                        # Retry on server errors and rate limiting
+                        if e.code in [429, 500, 502, 503, 504]:
+                            is_retriable = True
+                        else:
+                            # Don't retry on client errors (4xx except 429)
+                            is_retriable = False
+                    else:
+                        # Retry on network errors
+                        is_retriable = True
+                    
+                    if not is_retriable:
+                        break
+                    
+                    # Calculate delay with exponential backoff and jitter
+                    delay = min(base_delay * (multiplier ** attempt), max_delay)
+                    jitter = random.uniform(0.1, 0.5)  # Add jitter to prevent thundering herd
+                    delay += jitter
+                    
+                    # Update retry statistics if available in args/self
+                    if args and hasattr(args[0], 'retry_attempts'):
+                        args[0].retry_attempts += 1
+                    
+                    # Log retry attempt if debug is available in args/self
+                    debug = False
+                    if args and hasattr(args[0], 'debug'):
+                        debug = args[0].debug
+                    
+                    if debug:
+                        print(f"Retry attempt {attempt + 1}/{max_retries} after {delay:.1f}s delay. Error: {e}")
+                    
+                    time.sleep(delay)
+                
+                except Exception as e:
+                    # Don't retry on non-network exceptions
+                    last_exception = e
+                    break
+            
+            # Re-raise the last exception if all retries failed
+            raise last_exception
+        
+        return wrapper
+    return decorator
+
+
 class TVDBCache:
     """JSON-based cache for TVDB API responses."""
     
@@ -226,7 +304,10 @@ class TVDBClient:
         self.cache = cache
         self.cache_hits = 0
         self.cache_misses = 0
+        self.retry_attempts = 0
+        self.retry_successes = 0
     
+    @retry_with_backoff(max_retries=3, base_delay=1.0)
     def login(self) -> bool:
         """
         Login to TVDB API and obtain JWT token.
@@ -273,6 +354,7 @@ class TVDBClient:
             return self.login()
         return True
     
+    @retry_with_backoff(max_retries=3, base_delay=1.0)
     def search_show(self, show_name: str) -> Optional[Dict[str, Any]]:
         """
         Search for a TV show by name with caching support.
@@ -718,6 +800,13 @@ class TVShowYearUpdater:
             print(f"   Cache hits: {self.tvdb_client.cache_hits}")
             print(f"   Cache misses: {self.tvdb_client.cache_misses}")
             print(f"   Cache hit rate: {hit_rate:.1f}%")
+        
+        # Display retry statistics if retries occurred
+        if self.tvdb_client.retry_attempts > 0:
+            print(f"   Retry attempts: {self.tvdb_client.retry_attempts}")
+            print(f"   Successful retries: {self.tvdb_client.retry_successes}")
+            retry_success_rate = (self.tvdb_client.retry_successes / self.tvdb_client.retry_attempts * 100) if self.tvdb_client.retry_attempts > 0 else 0
+            print(f"   Retry success rate: {retry_success_rate:.1f}%")
     
     def display_cache_statistics(self) -> None:
         """Display detailed cache statistics."""
