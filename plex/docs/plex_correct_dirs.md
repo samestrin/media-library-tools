@@ -23,8 +23,8 @@ A comprehensive Python tool for sanitizing and organizing Plex media directory n
 
 ```bash
 # Download and make executable
-wget https://raw.githubusercontent.com/samestrin/media-library-tools/main/Plex/plex_correct_dirs.py
-chmod +x plex_correct_dirs.py
+wget https://raw.githubusercontent.com/samestrin/media-library-tools/main/plex/plex_correct_dirs
+chmod +x plex_correct_dirs
 ```
 
 ## Usage

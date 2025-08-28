@@ -27,8 +27,8 @@ A Python tool for converting loose media files into proper directory structures.
 
 ```bash
 # Download and make executable
-wget https://raw.githubusercontent.com/samestrin/media-library-tools/main/plex/plex_make_dirs.py
-chmod +x plex_make_dirs.py
+wget https://raw.githubusercontent.com/samestrin/media-library-tools/main/plex/plex_make_dirs
+chmod +x plex_make_dirs
 ```
 
 ## Usage

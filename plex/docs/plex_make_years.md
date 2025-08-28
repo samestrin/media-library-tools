@@ -21,8 +21,8 @@ No installation required. Download the script and make it executable:
 
 ```bash
 # Download and make executable
-curl -O https://raw.githubusercontent.com/samestrin/media-library-tools/main/plex/plex_make_years.py
-chmod +x plex_make_years.py
+curl -O https://raw.githubusercontent.com/samestrin/media-library-tools/main/plex/plex_make_years
+chmod +x plex_make_years
 
 # Run immediately
 ./plex_make_years.py /path/to/media

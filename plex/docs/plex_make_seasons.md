@@ -22,8 +22,8 @@ A Python tool for organizing TV show episodes into season-specific directories. 
 
 ```bash
 # Download and make executable
-wget https://raw.githubusercontent.com/samestrin/media-library-tools/main/Plex/plex_make_seasons.py
-chmod +x plex_make_seasons.py
+wget https://raw.githubusercontent.com/samestrin/media-library-tools/main/plex/plex_make_seasons
+chmod +x plex_make_seasons
 ```
 
 ## Usage
