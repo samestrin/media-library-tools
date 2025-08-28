@@ -361,17 +361,17 @@ def main():
         description="Plex Directory Name Corrector - Sanitize and organize Plex media directory names",
         epilog="""
 Examples:
-  %(prog)s                                   # Process current directory (interactive)
-  %(prog)s /path/to/media                    # Process specific directory (interactive)
-  %(prog)s --dry-run                         # Preview changes in current directory
-  %(prog)s /path/to/media --dry-run          # Preview changes in specific directory
-  %(prog)s -y                                # Process current directory without confirmation
-  %(prog)s /path/to/media -y                 # Process specific directory without confirmation
-  %(prog)s --force                           # Force run in current directory (bypass lock)
+  %(prog)s                                   # Process current directory (dry-run, default)
+  %(prog)s /path/to/media                    # Process specific directory (dry-run, default)
+  %(prog)s --execute                         # Process current directory with changes
+  %(prog)s /path/to/media --execute          # Process specific directory with changes
+  %(prog)s --execute -y                      # Process directory without confirmation
+  %(prog)s --verbose                         # Show verbose output during dry-run
+  %(prog)s --force                           # Force run (bypass lock)
   
 Cron Usage:
   # Run daily at 2 AM (non-interactive)
-  0 2 * * * /usr/local/bin/plex_correct_dirs /path/to/media -y
+  0 2 * * * /usr/local/bin/plex_correct_dirs /path/to/media --execute -y
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -385,7 +385,23 @@ Cron Usage:
     parser.add_argument(
         '--dry-run',
         action='store_true',
-        help='Show what would be done without making changes (limited to 5 items)'
+        default=True,
+        help='Show what would be done without making changes (default: true)'
+    )
+    parser.add_argument(
+        '--execute',
+        action='store_true',
+        help='Actually perform operations (overrides --dry-run)'
+    )
+    parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Show verbose output'
+    )
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='Show detailed debug output'
     )
     parser.add_argument(
         '-y', '--yes',
@@ -411,23 +427,48 @@ Cron Usage:
     
     args = parser.parse_args()
     
+    # Handle debug mode
+    if args.debug:
+        args.verbose = True
+    
     # Read global configuration
     auto_execute = read_global_config_bool('AUTO_EXECUTE', False)
     auto_confirm = read_global_config_bool('AUTO_CONFIRM', False)
     
     # Apply global configuration (CLI arguments take precedence)
-    if auto_execute and args.dry_run:
-        args.dry_run = False  # Override dry_run if AUTO_EXECUTE is set
+    if auto_execute and not args.execute:
+        args.execute = True  # Set execute flag if AUTO_EXECUTE is set
     if auto_confirm and not args.yes:
         args.yes = True  # Set yes flag if AUTO_CONFIRM is set
     
+    # Handle dry-run/execute logic
+    if args.execute:
+        dry_run_mode = False
+    else:
+        dry_run_mode = args.dry_run  # This is True by default
+    
     # Validate arguments
-    if args.yes and args.dry_run:
+    if args.yes and dry_run_mode:
         print("Warning: -y/--yes flag has no effect in dry-run mode", file=sys.stderr)
+    
+    # Display header with mode indicator
+    print(f"Plex Directory Corrector v2.1.0")
+    print("=" * 50)
+    
+    if dry_run_mode:
+        print("DRY-RUN MODE: No changes will be made")
+    else:
+        print("EXECUTE MODE: Changes will be made to directories")
+    
+    if args.debug:
+        print("Debug: ENABLED")
+    elif args.verbose:
+        print("Verbose: ENABLED")
+    print()
     
     # Create corrector instance
     corrector = PlexDirectoryCorrector(
-        dry_run=args.dry_run,
+        dry_run=dry_run_mode,
         force=args.force,
         max_items=args.max_items
     )
@@ -438,7 +479,7 @@ Cron Usage:
             sys.exit(1)
         
         # Get confirmation for non-dry-run operations
-        if not args.dry_run and not args.yes and not is_non_interactive():
+        if not dry_run_mode and not args.yes and not is_non_interactive():
             print("\nThis will modify directory names and file locations.")
             print("Consider running with --dry-run first to preview changes.")
             try:
@@ -450,7 +491,7 @@ Cron Usage:
             if response not in ['yes', 'y']:
                 print("Operation cancelled.")
                 sys.exit(0)
-        elif not args.dry_run and (args.yes or is_non_interactive()):
+        elif not dry_run_mode and (args.yes or is_non_interactive()):
             if args.yes:
                 print("Proceeding with directory processing (--yes flag)...")
             else:

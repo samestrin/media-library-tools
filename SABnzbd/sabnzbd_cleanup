@@ -443,12 +443,12 @@ def validate_args(args: argparse.Namespace) -> Optional[int]:
         SystemExit: If arguments are invalid
     """
     # Validate arguments
-    if args.prune_at and args.delete:
-        print("Error: Cannot use both --delete and --prune-at flags together", file=sys.stderr)
+    if args.prune_at and args.execute:
+        print("Error: Cannot use both --execute and --prune-at flags together", file=sys.stderr)
         sys.exit(1)
         
-    if args.yes and not (args.delete or args.prune_at):
-        print("Warning: -y/--yes flag has no effect without --delete or --prune-at", file=sys.stderr)
+    if args.yes and not (args.execute or args.prune_at):
+        print("Warning: -y/--yes flag has no effect without --execute or --prune-at", file=sys.stderr)
     
     # Parse size threshold if provided
     size_threshold_bytes = None
@@ -496,7 +496,16 @@ def print_header(args: argparse.Namespace, search_path: Path) -> None:
     print(f"SABnzbd Directory Cleanup v{VERSION}")
     print("=" * 50)
     print(f"Searching in: {search_path}")
-    print(f"Mode: {'DELETE' if args.delete else 'LIST ONLY'}")
+    # Handle dry-run/execute logic
+    if args.execute:
+        dry_run_mode = False
+    else:
+        dry_run_mode = args.dry_run  # This is True by default
+    
+    if dry_run_mode:
+        print("DRY-RUN MODE: No changes will be made")
+    else:
+        print("EXECUTE MODE: Directories will be deleted")
     if args.debug:
         print("Debug: ENABLED (showing all directory analysis)")
     elif args.verbose:
@@ -661,16 +670,17 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s /downloads                    # List SABnzbd dirs in /downloads
-  %(prog)s /downloads --delete           # Delete SABnzbd dirs (interactive)
-  %(prog)s /downloads --delete -y        # Delete SABnzbd dirs (non-interactive)
+  %(prog)s /downloads                    # List SABnzbd dirs (dry-run mode, default)
+  %(prog)s /downloads --execute          # Delete SABnzbd dirs (interactive)
+  %(prog)s /downloads --execute -y       # Delete SABnzbd dirs (non-interactive)
   %(prog)s /downloads --prune-at 50G     # Auto-delete if total > 50GB
   %(prog)s /downloads --verbose          # Show detailed detection info
   %(prog)s /downloads --debug            # Show all scoring details
+  %(prog)s /downloads --delete           # Backward compatibility: same as --execute
   
 Cron Usage:
   # Run every hour to clean up downloads non-interactively
-  0 * * * * /path/to/sabnzbd_cleanup /downloads --delete -y
+  0 * * * * /path/to/sabnzbd_cleanup /downloads --execute -y
   
   # Auto-prune when downloads exceed 100GB
   0 */6 * * * /path/to/sabnzbd_cleanup /downloads --prune-at 100G
@@ -679,8 +689,10 @@ Cron Usage:
     
     parser.add_argument('path', nargs='?', default='.',
                       help='Directory to search (default: current directory)')
-    parser.add_argument('--delete', action='store_true',
-                      help='Actually delete found directories (default: list only)')
+    parser.add_argument('--dry-run', action='store_true', default=True,
+                      help='Show what would be done without making changes (default: true)')
+    parser.add_argument('--execute', '--delete', action='store_true',
+                      help='Actually delete found directories (overrides --dry-run)')
     parser.add_argument('-y', '--yes', action='store_true',
                       help='Skip confirmation prompt (for non-interactive use)')
     parser.add_argument('--prune-at', metavar='SIZE',
@@ -701,10 +713,13 @@ Cron Usage:
     auto_confirm = read_global_config_bool('AUTO_CONFIRM', False)
     
     # Apply global configuration (CLI arguments take precedence)
-    if auto_execute and not args.delete and not args.prune_at:
-        args.delete = True  # Set delete flag if AUTO_EXECUTE is set and no action specified
+    if auto_execute and not args.execute and not args.prune_at:
+        args.execute = True  # Set execute flag if AUTO_EXECUTE is set and no action specified
     if auto_confirm and not args.yes:
         args.yes = True  # Set yes flag if AUTO_CONFIRM is set
+    
+    # For backward compatibility, map --delete to execute mode
+    # The argparse --execute/--delete are aliases, so args.execute will be True for both
     
     # Validate arguments
     size_threshold_bytes = validate_args(args)
@@ -761,10 +776,10 @@ Cron Usage:
         # Handle --prune-at logic
         if args.prune_at:
             handled = handle_prune_at(args, total_bytes, size_threshold_bytes, dir_info)
-        elif args.delete:
+        elif args.execute:
             handled = handle_delete(args, dir_info)
         else:
-            print("To delete these directories, run with --delete")
+            print("To delete these directories, run with --execute")
             print("Recommendation: Stop SABnzbd before deleting")
     
     finally:

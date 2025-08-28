@@ -502,20 +502,22 @@ def main():
         description="Plex Year Organizer - Organize directories by year",
         epilog="""
 Examples:
-  %(prog)s                                      # Organize current directory by year (interactive)
-  %(prog)s /path/to/media                       # Organize specific directory by year (interactive)
-  %(prog)s --dry-run                            # Preview changes in current directory
-  %(prog)s /path/to/media --dry-run             # Preview changes in specific directory
-  %(prog)s -y                                   # Organize current directory without confirmation
-  %(prog)s /path/to/media -y                    # Organize specific directory without confirmation
-  %(prog)s --base /organized                    # Create year dirs in different location (current dir)
-  %(prog)s /path/to/media --base /organized     # Create year dirs in different location (specific dir)
-  %(prog)s --year-range 1980 2025               # Custom year range (current directory)
-  %(prog)s --force                              # Force run in current directory (bypass lock)
+  %(prog)s                                      # Preview changes in current directory (dry-run default)
+  %(prog)s /path/to/media                       # Preview changes in specific directory (dry-run default)
+  %(prog)s --execute                            # Actually organize current directory by year
+  %(prog)s /path/to/media --execute             # Actually organize specific directory by year
+  %(prog)s --execute -y                         # Organize current directory without confirmation
+  %(prog)s /path/to/media --execute -y          # Organize specific directory without confirmation
+  %(prog)s --base /organized --execute          # Create year dirs in different location (current dir)
+  %(prog)s /path/to/media --base /organized --execute # Create year dirs in different location (specific dir)
+  %(prog)s --year-range 1980 2025 --execute     # Custom year range (current directory)
+  %(prog)s --verbose --execute                  # Show verbose output while organizing
+  %(prog)s --debug --execute                    # Show detailed debug output while organizing
+  %(prog)s --force --execute                    # Force run in current directory (bypass lock)
   
 Cron Usage:
   # Run daily at 2 AM (non-interactive)
-  0 2 * * * /usr/local/bin/plex_make_years /path/to/downloads -y
+  0 2 * * * /usr/local/bin/plex_make_years /path/to/downloads --execute -y
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -534,7 +536,23 @@ Cron Usage:
     parser.add_argument(
         '--dry-run',
         action='store_true',
-        help='Show what would be done without making changes'
+        default=True,
+        help='Show what would be done without making changes (default)'
+    )
+    parser.add_argument(
+        '--execute',
+        action='store_true',
+        help='Actually perform operations (overrides --dry-run)'
+    )
+    parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Show verbose output'
+    )
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='Show detailed debug output'
     )
     parser.add_argument(
         '--force',
@@ -568,6 +586,10 @@ Cron Usage:
     
     args = parser.parse_args()
     
+    # Handle debug mode (enables verbose)
+    if args.debug:
+        args.verbose = True
+    
     # Handle --list-patterns
     if args.list_patterns:
         organizer = YearOrganizer()
@@ -594,13 +616,19 @@ Cron Usage:
     auto_confirm = read_global_config_bool('AUTO_CONFIRM', False)
     
     # Apply global configuration (CLI arguments take precedence)
-    if auto_execute and args.dry_run:
-        args.dry_run = False  # Override dry_run if AUTO_EXECUTE is set
+    if auto_execute and not args.execute:
+        args.execute = True  # Override dry_run if AUTO_EXECUTE is set
     if auto_confirm and not args.yes:
         args.yes = True  # Set yes flag if AUTO_CONFIRM is set
     
+    # Determine dry-run mode
+    if args.execute:
+        dry_run_mode = False
+    else:
+        dry_run_mode = args.dry_run  # This is True by default
+    
     # Validate arguments
-    if args.yes and args.dry_run:
+    if args.yes and dry_run_mode:
         print("Warning: -y/--yes flag has no effect in dry-run mode", file=sys.stderr)
     
     # Validate year range
@@ -608,17 +636,32 @@ Cron Usage:
         print("Error: Start year must be less than end year.")
         sys.exit(1)
     
+    # Show mode indicators
+    print(f"Plex Year Organizer v2.1.0")
+    print("=" * 50)
+    
+    if dry_run_mode:
+        print("DRY-RUN MODE: No changes will be made")
+    else:
+        print("EXECUTE MODE: Changes will be made")
+    
+    if args.debug:
+        print("Debug: ENABLED")
+    elif args.verbose:
+        print("Verbose: ENABLED")
+    print()
+    
     # Create organizer instance
     base_dir = Path(args.base).resolve() if args.base else None
     organizer = YearOrganizer(
-        dry_run=args.dry_run,
+        dry_run=dry_run_mode,
         force=args.force,
         base_dir=base_dir,
         year_range=tuple(args.year_range)
     )
     
     # Confirmation logic for non-interactive environments
-    if not args.dry_run:
+    if not dry_run_mode:
         source_dir = Path(args.directory).resolve()
         if not args.yes and not is_non_interactive():
             print(f"About to organize directories by year in: {source_dir}")

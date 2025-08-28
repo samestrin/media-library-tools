@@ -391,20 +391,22 @@ def main():
         description="Plex Directory Creator - Convert files to directory structure",
         epilog="""
 Examples:
-  %(prog)s                                   # Process current directory (interactive)
-  %(prog)s /path/to/media                    # Process specific directory (interactive)
-  %(prog)s --dry-run                         # Preview changes in current directory
-  %(prog)s /path/to/media --dry-run          # Preview changes in specific directory
-  %(prog)s -y                                # Process current directory without confirmation
-  %(prog)s /path/to/media -y                 # Process specific directory without confirmation
-  %(prog)s --types mp4 mkv                   # Only process MP4 and MKV files (current dir)
-  %(prog)s /path/to/media --types mp4 mkv    # Only process MP4 and MKV files (specific dir)
-  %(prog)s --exclude txt pdf                 # Exclude text and PDF files (current dir)
-  %(prog)s --force                           # Force run in current directory (bypass lock)
+  %(prog)s                                   # Preview changes in current directory (dry-run default)
+  %(prog)s /path/to/media                    # Preview changes in specific directory (dry-run default)
+  %(prog)s --execute                         # Actually process current directory
+  %(prog)s /path/to/media --execute          # Actually process specific directory
+  %(prog)s --execute -y                      # Process current directory without confirmation
+  %(prog)s /path/to/media --execute -y       # Process specific directory without confirmation
+  %(prog)s --types mp4 mkv --execute         # Only process MP4 and MKV files (current dir)
+  %(prog)s /path/to/media --types mp4 mkv --execute  # Only process MP4 and MKV files (specific dir)
+  %(prog)s --exclude txt pdf --execute       # Exclude text and PDF files (current dir)
+  %(prog)s --verbose --execute               # Show verbose output while processing
+  %(prog)s --debug --execute                 # Show detailed debug output while processing
+  %(prog)s --force --execute                 # Force run in current directory (bypass lock)
   
 Cron Usage:
   # Run daily at 4 AM (non-interactive)
-  0 4 * * * /usr/local/bin/plex_make_dirs /path/to/media -y
+  0 4 * * * /usr/local/bin/plex_make_dirs /path/to/media --execute -y
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -418,7 +420,23 @@ Cron Usage:
     parser.add_argument(
         '--dry-run',
         action='store_true',
-        help='Show what would be done without making changes'
+        default=True,
+        help='Show what would be done without making changes (default)'
+    )
+    parser.add_argument(
+        '--execute',
+        action='store_true',
+        help='Actually perform operations (overrides --dry-run)'
+    )
+    parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Show verbose output'
+    )
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='Show detailed debug output'
     )
     parser.add_argument(
         '--force',
@@ -455,6 +473,10 @@ Cron Usage:
     
     args = parser.parse_args()
     
+    # Handle debug mode (enables verbose)
+    if args.debug:
+        args.verbose = True
+    
     # Handle --list-types
     if args.list_types:
         creator = PlexDirectoryCreator()
@@ -468,18 +490,39 @@ Cron Usage:
     auto_confirm = read_global_config_bool('AUTO_CONFIRM', False)
     
     # Apply global configuration (CLI arguments take precedence)
-    if auto_execute and args.dry_run:
-        args.dry_run = False  # Override dry_run if AUTO_EXECUTE is set
+    if auto_execute and not args.execute:
+        args.execute = True  # Override dry_run if AUTO_EXECUTE is set
     if auto_confirm and not args.yes:
         args.yes = True  # Set yes flag if AUTO_CONFIRM is set
     
+    # Determine dry-run mode
+    if args.execute:
+        dry_run_mode = False
+    else:
+        dry_run_mode = args.dry_run  # This is True by default
+    
     # Validate arguments
-    if args.yes and args.dry_run:
+    if args.yes and dry_run_mode:
         print("Warning: -y/--yes flag has no effect in dry-run mode", file=sys.stderr)
+    
+    # Show mode indicators
+    print(f"Plex Directory Creator v2.1.0")
+    print("=" * 50)
+    
+    if dry_run_mode:
+        print("DRY-RUN MODE: No changes will be made")
+    else:
+        print("EXECUTE MODE: Changes will be made")
+    
+    if args.debug:
+        print("Debug: ENABLED")
+    elif args.verbose:
+        print("Verbose: ENABLED")
+    print()
     
     # Create creator instance
     creator = PlexDirectoryCreator(
-        dry_run=args.dry_run,
+        dry_run=dry_run_mode,
         force=args.force,
         file_types=set(args.types) if args.types else None,
         exclude_types=set(args.exclude) if args.exclude else None
@@ -491,7 +534,7 @@ Cron Usage:
             sys.exit(1)
         
         # Confirmation prompt for non-dry-run operations
-        if not args.dry_run and not args.yes and not is_non_interactive():
+        if not dry_run_mode and not args.yes and not is_non_interactive():
             print("\nThis will create directories and move files to organize your media.")
             print("Files will be moved into directories named after the file (without extension).")
             try:
@@ -502,7 +545,7 @@ Cron Usage:
             except (EOFError, KeyboardInterrupt):
                 print("\nOperation cancelled.")
                 sys.exit(0)
-        elif not args.dry_run and (args.yes or is_non_interactive()):
+        elif not dry_run_mode and (args.yes or is_non_interactive()):
             if args.yes:
                 print("Proceeding with directory creation (--yes flag)...")
             else:
