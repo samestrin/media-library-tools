@@ -515,6 +515,7 @@ class TVShowYearUpdater:
         self.stats = {
             'directories_processed': 0,
             'directories_renamed': 0,
+            'directories_would_rename': 0,
             'directories_skipped': 0,
             'api_errors': 0,
             'file_errors': 0
@@ -801,7 +802,7 @@ class TVShowYearUpdater:
                             self.stats['file_errors'] += 1
                     else:
                         print(f"  DRY RUN: Would rename to '{new_name}'")
-                        self.stats['directories_renamed'] += 1
+                        self.stats['directories_would_rename'] += 1
                     
                     # Small delay to be respectful to TVDB API
                     time.sleep(0.5)
@@ -822,7 +823,10 @@ class TVShowYearUpdater:
         print(f"\nProcessing complete!")
         print(f"Statistics:")
         print(f"   Directories processed: {self.stats['directories_processed']}")
-        print(f"   Directories renamed: {self.stats['directories_renamed']}")
+        if self.dry_run:
+            print(f"   Directories would rename: {self.stats['directories_would_rename']}")
+        else:
+            print(f"   Directories renamed: {self.stats['directories_renamed']}")
         print(f"   Directories skipped: {self.stats['directories_skipped']}")
         print(f"   API errors: {self.stats['api_errors']}")
         print(f"   File errors: {self.stats['file_errors']}")
