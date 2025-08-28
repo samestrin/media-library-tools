@@ -31,6 +31,50 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Union
 
 
+def read_global_config_bool(var_name: str, default: bool = False) -> bool:
+    """Read a boolean environment variable with support for .env files.
+    
+    Args:
+        var_name: Name of the environment variable
+        default: Default value if not found
+        
+    Returns:
+        Boolean value of the environment variable
+    """
+    # Check environment variable directly
+    value = os.environ.get(var_name)
+    if value is not None:
+        return value.lower() in ('true', '1', 'yes', 'on')
+    
+    # Check local .env file
+    env_file = '.env'
+    if os.path.exists(env_file):
+        try:
+            with open(env_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith(f'{var_name}='):
+                        value = line.split('=', 1)[1].strip()
+                        return value.lower() in ('true', '1', 'yes', 'on')
+        except (IOError, OSError):
+            pass
+    
+    # Check global .env file
+    global_env_path = Path.home() / '.media-library-tools' / '.env'
+    if global_env_path.exists():
+        try:
+            with open(global_env_path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith(f'{var_name}='):
+                        value = line.split('=', 1)[1].strip()
+                        return value.lower() in ('true', '1', 'yes', 'on')
+        except (IOError, OSError):
+            pass
+    
+    return default
+
+
 def is_non_interactive() -> bool:
     """
     Detect if we're running in a non-interactive environment (e.g., cron job).
@@ -544,6 +588,16 @@ Cron Usage:
             if year:
                 print(f"  '{example}' → {year} ({pattern_desc})")
         sys.exit(0)
+    
+    # Read global configuration
+    auto_execute = read_global_config_bool('AUTO_EXECUTE', False)
+    auto_confirm = read_global_config_bool('AUTO_CONFIRM', False)
+    
+    # Apply global configuration (CLI arguments take precedence)
+    if auto_execute and args.dry_run:
+        args.dry_run = False  # Override dry_run if AUTO_EXECUTE is set
+    if auto_confirm and not args.yes:
+        args.yes = True  # Set yes flag if AUTO_CONFIRM is set
     
     # Validate arguments
     if args.yes and args.dry_run:

@@ -28,6 +28,75 @@ import tempfile
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+
+def read_global_config_bool(var_name: str, default: bool = False) -> bool:
+    """Read a boolean environment variable with support for .env files.
+    
+    Args:
+        var_name: Name of the environment variable
+        default: Default value if not found
+        
+    Returns:
+        Boolean value of the environment variable
+    """
+    # Check environment variable directly
+    value = os.environ.get(var_name)
+    if value is not None:
+        return value.lower() in ('true', '1', 'yes', 'on')
+    
+    # Check local .env file
+    env_file = '.env'
+    if os.path.exists(env_file):
+        try:
+            with open(env_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith(f'{var_name}='):
+                        value = line.split('=', 1)[1].strip()
+                        return value.lower() in ('true', '1', 'yes', 'on')
+        except (IOError, OSError):
+            pass
+    
+    # Check global .env file
+    global_env_path = Path.home() / '.media-library-tools' / '.env'
+    if global_env_path.exists():
+        try:
+            with open(global_env_path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith(f'{var_name}='):
+                        value = line.split('=', 1)[1].strip()
+                        return value.lower() in ('true', '1', 'yes', 'on')
+        except (IOError, OSError):
+            pass
+    
+    return default
+
+
+def is_non_interactive() -> bool:
+    """
+    Detect if we're running in a non-interactive environment (e.g., cron job).
+    
+    Returns:
+        bool: True if running non-interactively, False otherwise
+    """
+    # Check if stdin is not a TTY (common in cron jobs)
+    if not sys.stdin.isatty():
+        return True
+    
+    # Check common environment variables that indicate automation
+    automation_vars = ['CRON', 'CI', 'AUTOMATED', 'NON_INTERACTIVE']
+    for var in automation_vars:
+        if os.environ.get(var):
+            return True
+    
+    # Check if TERM is not set (common in cron)
+    if not os.environ.get('TERM'):
+        return True
+    
+    return False
+
+
 def get_plex_naming_convention():
     """
     Plex naming conventions for extras:
@@ -313,6 +382,16 @@ def validate_args(args):
     if args.debug:
         args.verbose = True
     
+    # Read global configuration
+    auto_execute = read_global_config_bool('AUTO_EXECUTE', False)
+    auto_confirm = read_global_config_bool('AUTO_CONFIRM', False)
+    
+    # Apply global configuration (CLI arguments take precedence)
+    if auto_execute and args.dry_run:
+        args.dry_run = False  # Override dry_run if AUTO_EXECUTE is set
+    if auto_confirm and not args.yes:
+        args.yes = True  # Set yes flag if AUTO_CONFIRM is set
+    
     # Validate arguments
     if not os.path.exists(args.directory):
         print(f"Error: Directory '{args.directory}' does not exist.")
@@ -328,7 +407,7 @@ def handle_confirmation(args):
     if not args.dry_run:
         if not confirm_action(
             f"Rename video files in '{args.directory}'?",
-            args.yes
+            args.yes or is_non_interactive()
         ):
             print("Operation cancelled.")
             sys.exit(0)
