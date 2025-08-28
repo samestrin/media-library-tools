@@ -5,7 +5,7 @@
 ```                                             
 # Media Library Tools
 [![Star on GitHub](https://img.shields.io/github/stars/samestrin/media-library-tools?style=social)](https://github.com/samestrin/media-library-tools/stargazers) [![Fork on GitHub](https://img.shields.io/github/forks/samestrin/media-library-tools?style=social)](https://github.com/samestrin/media-library-tools/network/members) [![Watch on GitHub](https://img.shields.io/github/watchers/samestrin/media-library-tools?style=social)](https://github.com/samestrin/media-library-tools/watchers)
-![Version 1.1.0-beta](https://img.shields.io/badge/Version-1.1.0--beta-orange) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Built with Python](https://img.shields.io/badge/Built%20with-Python-green)](https://python.org/)
+![Version 1.2.0-beta](https://img.shields.io/badge/Version-1.2.0--beta-orange) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Built with Python](https://img.shields.io/badge/Built%20with-Python-green)](https://python.org/)
 
 A comprehensive collection of self-contained Python CLI tools for managing and organizing media libraries across Plex, SABnzbd, and other media applications. Each tool is designed as a standalone script requiring no external dependencies, focusing on safety, automation, and consistent user experience.
 
@@ -23,6 +23,36 @@ This project provides a unified suite of tools that help you maintain clean, wel
 - **Cross-platform compatibility**: Python-based tools that work across different operating systems
 - **Automation-friendly**: Built-in support for cron jobs with non-interactive modes
 - **Well-documented**: Extensive documentation and practical usage examples for every tool
+
+## CLI Standardization (v1.2.0)
+
+All tools now follow a completely standardized command-line interface with consistent behavior across the entire suite:
+
+### Standard Arguments (Available on All Tools)
+- `--dry-run` - **Default behavior**: Preview changes without making modifications
+- `--execute` - Override dry-run mode to actually perform operations  
+- `--verbose` - Show detailed operation information
+- `--debug` - Show comprehensive debug output (includes verbose)
+- `-y` / `--yes` - Skip confirmation prompts for automation
+- `--force` - Bypass lock files and force execution
+- `--version` - Display tool version information
+
+### Consistent Mode Indicators
+Every tool clearly displays its current mode:
+- **DRY-RUN MODE**: No changes will be made (default)
+- **EXECUTE MODE**: Changes will be made to files/directories
+
+### Global Configuration Support
+Tools respect environment variables for default behavior:
+- `AUTO_EXECUTE=true` - Default to execute mode instead of dry-run
+- `AUTO_CONFIRM=true` - Skip confirmation prompts automatically
+
+### Cron-Friendly Operation
+All tools include comprehensive automation support with:
+- Non-interactive environment detection
+- Proper exit codes for monitoring
+- Detailed logging for unattended operation
+- Example cron configurations in help text
 
 ## Project Structure
 

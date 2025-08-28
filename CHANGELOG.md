@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0-beta] - 2025-08-28
+
+### Added
+- **Complete CLI Standardization**: All 9 tools now follow identical command-line interface patterns
+  - `--dry-run` flag with default True behavior across all tools
+  - `--execute` flag to override dry-run mode and actually perform operations
+  - `--verbose` and `--debug` flags for consistent logging levels
+  - Standardized mode indicators: "DRY-RUN MODE" vs "EXECUTE MODE" 
+  - Consistent help text formatting with cron usage examples
+  - Backward compatibility maintained for all existing usage patterns
+
+### Enhanced
+- **sabnzbd_cleanup**: Added `--execute` as alias for `--delete` while maintaining backward compatibility
+- **All Plex Tools**: Updated to use standardized argument patterns and mode indicators
+  - `plex_correct_dirs`: Added execute mode, verbose/debug flags, mode indicators
+  - `plex_make_dirs`: Added execute mode, verbose/debug flags, mode indicators  
+  - `plex_make_seasons`: Added execute mode, verbose/debug flags, mode indicators
+  - `plex_make_years`: Added execute mode, verbose/debug flags, mode indicators
+  - `plex_move_movie_extras`: Added execute mode, standardized confirmation logic
+  - `plex_movie_subdir_renamer`: Added execute mode, refactored function architecture
+  - `plex_make_all_seasons`: Added execute mode, verbose/debug flags, preserved parallel processing
+  - `plex_update_tv_years`: Verified compliance as reference implementation
+
+### Testing
+- **Comprehensive CLI Test Suite**: New integration tests validate standardization across all tools
+- **Behavioral Testing**: Automated tests verify dry-run/execute modes, argument parsing, help text consistency
+- **Backward Compatibility**: Tests confirm existing usage patterns continue to work
+
+### Documentation  
+- **Updated README**: New CLI Standardization section documenting standard arguments and behavior
+- **Version Bump**: Updated to 1.2.0-beta reflecting major CLI improvements
+- **Enhanced Examples**: All tools now include consistent cron usage examples in help text
+
 ## [1.1.0-beta] - 2025-08-28
 
 ### Added
