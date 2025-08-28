@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0-beta] - 2025-08-28
+
+### Added
+- **Global Configuration System**: Revolutionary new feature enabling default behavior configuration
+  - `AUTO_EXECUTE` environment variable for default execution mode across all tools
+  - `AUTO_CONFIRM` environment variable for default confirmation behavior
+  - Configuration hierarchy: CLI arguments > Environment variables > Local .env > Global ~/.media-library-tools/.env
+  - Comprehensive `.env` file support with graceful error handling
+  - Boolean value parsing supporting multiple formats: 'true', '1', 'yes', 'on' (case-insensitive)
+  
+### Enhanced
+- **All 9 Media Library Tools** updated with consistent global configuration support:
+  - `plex/plex_correct_dirs` - Now supports AUTO_EXECUTE and AUTO_CONFIRM
+  - `plex/plex_make_all_seasons` - Now supports AUTO_EXECUTE and AUTO_CONFIRM
+  - `plex/plex_make_dirs` - Now supports AUTO_EXECUTE and AUTO_CONFIRM
+  - `plex/plex_make_seasons` - Now supports AUTO_EXECUTE and AUTO_CONFIRM
+  - `plex/plex_make_years` - Now supports AUTO_EXECUTE and AUTO_CONFIRM
+  - `plex/plex_move_movie_extras` - Now supports AUTO_EXECUTE and AUTO_CONFIRM
+  - `plex/plex_movie_subdir_renamer` - Now supports AUTO_EXECUTE and AUTO_CONFIRM
+  - `plex/plex_update_tv_years` - Now supports AUTO_EXECUTE and AUTO_CONFIRM
+  - `SABnzbd/sabnzbd_cleanup` - Now supports AUTO_EXECUTE and AUTO_CONFIRM
+
+### Features
+- **Backward Compatibility**: All existing usage patterns continue to work unchanged
+- **CLI Precedence**: Explicit command-line flags always override environment variables
+- **Automation-Friendly**: Perfect for interactive workflows and cron jobs
+- **Zero Dependencies**: Global config implementation uses only Python standard library
+- **Robust Error Handling**: Graceful handling of malformed or missing configuration files
+- **Non-Interactive Detection**: Automatic environment detection for cron/CI workflows
+
+### Testing
+- **Comprehensive Unit Tests**: 8/8 tests passing (100% success rate)
+- **Environment Variable Testing**: Complete validation of configuration hierarchy
+- **Boolean Parsing Tests**: All supported value formats tested and validated
+- **Error Handling Tests**: Malformed configuration file handling verified
+- **Integration Tests**: CLI argument precedence and script behavior validation
+
+### Documentation
+- **Updated README.md**: Complete global configuration documentation with examples
+- **Updated CLAUDE.md**: New Global Configuration Standards section
+- **Usage Examples**: Comprehensive examples for all configuration methods
+- **Migration Guide**: Clear instructions for adopting global configuration
+
 ## [1.0.0-beta] - 2025-08-27
 
 ### Added

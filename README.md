@@ -5,7 +5,7 @@
 ```                                             
 # Media Library Tools
 [![Star on GitHub](https://img.shields.io/github/stars/samestrin/media-library-tools?style=social)](https://github.com/samestrin/media-library-tools/stargazers) [![Fork on GitHub](https://img.shields.io/github/forks/samestrin/media-library-tools?style=social)](https://github.com/samestrin/media-library-tools/network/members) [![Watch on GitHub](https://img.shields.io/github/watchers/samestrin/media-library-tools?style=social)](https://github.com/samestrin/media-library-tools/watchers)
-![Version 1.0.0-beta](https://img.shields.io/badge/Version-1.0.0--beta-orange) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Built with Python](https://img.shields.io/badge/Built%20with-Python-green)](https://python.org/)
+![Version 1.1.0-beta](https://img.shields.io/badge/Version-1.1.0--beta-orange) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Built with Python](https://img.shields.io/badge/Built%20with-Python-green)](https://python.org/)
 
 A comprehensive collection of self-contained Python CLI tools for managing and organizing media libraries across Plex, SABnzbd, and other media applications. Each tool is designed as a standalone script requiring no external dependencies, focusing on safety, automation, and consistent user experience.
 
@@ -235,6 +235,100 @@ Use the `-y` or `--yes` flag to skip confirmation prompts:
 - Comprehensive logging for troubleshooting
 - Graceful handling of permission errors
 - Exit codes for monitoring systems
+
+## Global Configuration
+
+All tools support global configuration via environment variables and `.env` files, allowing you to set default behavior without specifying command-line flags every time.
+
+### Environment Variables
+
+#### `AUTO_EXECUTE`
+Sets the default execution mode for tools that support `--execute`/`--dry-run` flags.
+
+**Supported values**: `true`, `1`, `yes`, `on` (case-insensitive) enable execution mode; any other value keeps dry-run as default.
+
+#### `AUTO_CONFIRM`
+Sets the default confirmation behavior, equivalent to the `-y`/`--yes` flag.
+
+**Supported values**: `true`, `1`, `yes`, `on` (case-insensitive) skip confirmation prompts; any other value keeps interactive confirmations.
+
+### Configuration Hierarchy
+
+Configuration is applied in the following order (highest to lowest precedence):
+1. **CLI arguments**: Explicit command-line flags (e.g., `--execute`, `-y`)
+2. **Environment variables**: `AUTO_EXECUTE`, `AUTO_CONFIRM`
+3. **Local .env**: File in current working directory
+4. **Global .env**: File in `~/.media-library-tools/.env`
+
+### Setup Global Configuration
+
+#### Method 1: Environment Variables
+```bash
+# Set globally for current session
+export AUTO_EXECUTE=true
+export AUTO_CONFIRM=true
+
+# Add to shell profile for persistence
+echo 'export AUTO_EXECUTE=true' >> ~/.bashrc
+echo 'export AUTO_CONFIRM=true' >> ~/.bashrc
+```
+
+#### Method 2: Global Configuration File
+```bash
+# Create global config directory
+mkdir -p ~/.media-library-tools
+
+# Create global configuration file
+cat > ~/.media-library-tools/.env << EOF
+# Global configuration for media library tools
+AUTO_EXECUTE=true
+AUTO_CONFIRM=true
+EOF
+```
+
+#### Method 3: Project-Specific Configuration
+```bash
+# Create local .env in your media directory
+cd /path/to/your/media
+cat > .env << EOF
+# Project-specific configuration
+AUTO_EXECUTE=false
+AUTO_CONFIRM=true
+EOF
+```
+
+### Usage Examples with Global Config
+
+#### Traditional Usage (Still Supported)
+```bash
+# Explicit flags (always works)
+./plex/plex_correct_dirs /media --execute -y
+./SABnzbd/sabnzbd_cleanup /downloads --delete -y
+```
+
+#### With Global Configuration
+```bash
+# After setting AUTO_EXECUTE=true, AUTO_CONFIRM=true
+./plex/plex_correct_dirs /media              # Runs in execute mode with no prompts
+./SABnzbd/sabnzbd_cleanup /downloads --delete  # Deletes with no prompts
+
+# CLI flags still override global config
+./plex/plex_correct_dirs /media --dry-run    # Forces dry-run despite AUTO_EXECUTE=true
+./SABnzbd/sabnzbd_cleanup /downloads --delete  # Will prompt despite AUTO_CONFIRM=true
+```
+
+#### Automation-Friendly Workflows
+```bash
+# Set up once for interactive workflows
+echo "AUTO_EXECUTE=true" > ~/.media-library-tools/.env
+
+# Now scripts run in execute mode by default
+./plex/plex_make_seasons /media/tv/ShowName
+./plex/plex_move_movie_extras "Movie (2023).mkv" "Extras"
+
+# Override when you want to preview
+./plex/plex_make_years /media/movies --dry-run
+```
 
 ## Safety features
 
