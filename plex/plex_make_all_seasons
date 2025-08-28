@@ -473,8 +473,6 @@ class PlexSeasonBatchOrganizer:
             return False
         
         print(f"Processing TV shows in: {base_dir}")
-        if self.dry_run:
-            print("DRY RUN MODE - No files will be moved")
         if self.recursive:
             print("RECURSIVE MODE - Processing all subdirectories")
         print(f"Using {self.max_workers} worker threads")
@@ -508,16 +506,18 @@ def main():
         description="Plex Season Organizer (Batch) - Organize TV show episodes into season directories",
         epilog="""
 Examples:
-  %(prog)s /path/to/tv/shows                    # Process all show directories (interactive)
-  %(prog)s /path/to/tv/shows --dry-run          # Preview changes
-  %(prog)s /path/to/tv/shows -y                 # Process without confirmation
+  %(prog)s /path/to/tv/shows                    # Preview changes (dry-run mode)
+  %(prog)s /path/to/tv/shows --execute          # Actually organize files
+  %(prog)s /path/to/tv/shows --execute -y       # Execute without confirmation
   %(prog)s /path/to/tv/shows --parallel 8       # Use 8 worker threads
   %(prog)s /path/to/tv/shows --recursive        # Process all subdirectories
+  %(prog)s /path/to/tv/shows --verbose          # Show verbose output
+  %(prog)s /path/to/tv/shows --debug            # Show debug output
   %(prog)s /path/to/tv/shows --force            # Force run (bypass lock)
   
 Cron Usage:
   # Run daily at 3 AM (non-interactive)
-  0 3 * * * /usr/local/bin/plex_make_all_seasons.py /path/to/tv/shows -y
+  0 3 * * * /usr/local/bin/plex_make_all_seasons /path/to/tv/shows --execute -y
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -531,12 +531,28 @@ Cron Usage:
     parser.add_argument(
         '--dry-run',
         action='store_true',
-        help='Show what would be done without making changes'
+        default=True,
+        help='Show what would be done without making changes (default: true)'
+    )
+    parser.add_argument(
+        '--execute',
+        action='store_true',
+        help='Actually perform operations (overrides --dry-run)'
     )
     parser.add_argument(
         '-y', '--yes',
         action='store_true',
         help='Skip confirmation prompt (for non-interactive use)'
+    )
+    parser.add_argument(
+        '--verbose',
+        action='store_true',
+        help='Show verbose output'
+    )
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='Show detailed debug output'
     )
     parser.add_argument(
         '--force',
@@ -563,27 +579,52 @@ Cron Usage:
     
     args = parser.parse_args()
     
+    # Handle debug mode (enables verbose)
+    if args.debug:
+        args.verbose = True
+    
     # Read global configuration
     auto_execute = read_global_config_bool('AUTO_EXECUTE', False)
     auto_confirm = read_global_config_bool('AUTO_CONFIRM', False)
     
     # Apply global configuration (CLI arguments take precedence)
-    if auto_execute and args.dry_run:
-        args.dry_run = False  # Override dry_run if AUTO_EXECUTE is set
+    if auto_execute and not args.execute:
+        args.execute = True  # Set execute flag if AUTO_EXECUTE is set
     if auto_confirm and not args.yes:
         args.yes = True  # Set yes flag if AUTO_CONFIRM is set
+    
+    # Determine dry-run mode
+    if args.execute:
+        dry_run_mode = False
+    else:
+        dry_run_mode = args.dry_run  # This is True by default
     
     # Validate arguments
     if args.parallel < 1:
         print("Error: Number of workers must be at least 1")
         sys.exit(1)
     
-    if args.yes and args.dry_run:
+    if args.yes and dry_run_mode:
         print("Warning: -y/--yes flag has no effect in dry-run mode", file=sys.stderr)
+    
+    # Print mode indicator header
+    print(f"Plex Season Organizer (Batch) v2.1.0")
+    print("=" * 50)
+    
+    if dry_run_mode:
+        print("DRY-RUN MODE: No changes will be made")
+    else:
+        print("EXECUTE MODE: Episodes will be organized")
+    
+    if args.debug:
+        print("Debug: ENABLED")
+    elif args.verbose:
+        print("Verbose: ENABLED")
+    print()
     
     # Create organizer instance
     organizer = PlexSeasonBatchOrganizer(
-        dry_run=args.dry_run,
+        dry_run=dry_run_mode,
         force=args.force,
         max_workers=args.parallel,
         recursive=args.recursive

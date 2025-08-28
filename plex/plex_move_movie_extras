@@ -259,14 +259,18 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Preview what would be moved (dry run)
-  %(prog)s "Movie (2023).mkv" "Featurettes" --dry-run
+  # Preview what would be moved (dry-run mode, default)
+  %(prog)s "Movie (2023).mkv" "Featurettes"
   
   # Actually move files with confirmation
-  %(prog)s "Movie (2023).mkv" "Deleted Scenes"
+  %(prog)s "Movie (2023).mkv" "Deleted Scenes" --execute
   
   # Move files without confirmation (for automation)
-  %(prog)s "Movie (2023).mkv" "Behind the Scenes" -y
+  %(prog)s "Movie (2023).mkv" "Behind the Scenes" --execute -y
+  
+Cron Usage:
+  # Run daily to organize movie extras (non-interactive)
+  0 2 * * * /usr/local/bin/plex_move_movie_extras "/movies/Movie.mkv" "Featurettes" --execute -y
   
 
 """
@@ -282,8 +286,14 @@ Examples:
     )
     parser.add_argument(
         "--dry-run", 
+        action="store_true",
+        default=True,
+        help="Preview changes without modifying files (default: true)"
+    )
+    parser.add_argument(
+        "--execute", 
         action="store_true", 
-        help="Preview changes without modifying files"
+        help="Actually perform operations (overrides --dry-run)"
     )
     parser.add_argument(
         "-y", "--yes", 
@@ -322,10 +332,16 @@ Examples:
     auto_confirm = read_global_config_bool('AUTO_CONFIRM', False)
     
     # Apply global configuration (CLI arguments take precedence)
-    if auto_execute and args.dry_run:
-        args.dry_run = False  # Override dry_run if AUTO_EXECUTE is set
+    if auto_execute and not args.execute:
+        args.execute = True  # Set execute flag if AUTO_EXECUTE is set
     if auto_confirm and not args.yes:
         args.yes = True  # Set yes flag if AUTO_CONFIRM is set
+    
+    # Handle dry-run/execute logic
+    if args.execute:
+        dry_run_mode = False
+    else:
+        dry_run_mode = args.dry_run  # This is True by default
     
     # Validate arguments
     if not os.path.exists(args.main_file):
@@ -348,9 +364,24 @@ Examples:
         print(f"Error: '{args.sub_dir}' is not a directory.")
         sys.exit(1)
     
+    # Display header with mode indicator
+    print(f"Plex Movie Extras Organizer v{VERSION}")
+    print("=" * 50)
+    
+    if dry_run_mode:
+        print("DRY-RUN MODE: No changes will be made")
+    else:
+        print("EXECUTE MODE: Files will be moved and renamed")
+    
+    if args.debug:
+        print("Debug: ENABLED")
+    elif args.verbose:
+        print("Verbose: ENABLED")
+    print()
+    
     # Create organizer instance
     organizer = PlexMovieExtrasOrganizer(
-        dry_run=args.dry_run,
+        dry_run=dry_run_mode,
         force=args.force,
         verbose=args.verbose
     )
@@ -364,11 +395,11 @@ Examples:
         if args.verbose:
             print(f"Main file: {args.main_file}")
             print(f"Subdirectory: {args.sub_dir}")
-            print(f"Mode: {'DRY RUN' if args.dry_run else 'EXECUTE'}")
+            print(f"Mode: {'DRY RUN' if dry_run_mode else 'EXECUTE'}")
             print("-" * 50)
         
         # Confirm action unless in dry-run mode or confirmation skipped
-        if not args.dry_run:
+        if not dry_run_mode:
             if not confirm_action(
                 f"Move extras from '{args.sub_dir}' to main movie directory?",
                 args.yes or is_non_interactive()
@@ -380,8 +411,8 @@ Examples:
         success = organizer.organize_extras(args.main_file, sub_dir_path)
         
         if success:
-            if args.dry_run:
-                print("\nDry run completed successfully. Use without --dry-run to execute.")
+            if dry_run_mode:
+                print("\nDry run completed successfully. Use --execute to make changes.")
             else:
                 print("\nMovie extras organized successfully!")
         else:

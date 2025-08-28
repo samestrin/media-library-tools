@@ -378,19 +378,21 @@ def confirm_action(message: str, skip_confirmation: bool = False) -> bool:
 
 def validate_args(args):
     """Validate command line arguments."""
-    # Handle debug mode
-    if args.debug:
-        args.verbose = True
-    
     # Read global configuration
     auto_execute = read_global_config_bool('AUTO_EXECUTE', False)
     auto_confirm = read_global_config_bool('AUTO_CONFIRM', False)
     
     # Apply global configuration (CLI arguments take precedence)
-    if auto_execute and args.dry_run:
-        args.dry_run = False  # Override dry_run if AUTO_EXECUTE is set
+    if auto_execute and not args.execute:
+        args.execute = True  # Set execute flag if AUTO_EXECUTE is set
     if auto_confirm and not args.yes:
         args.yes = True  # Set yes flag if AUTO_CONFIRM is set
+    
+    # Handle dry-run/execute logic
+    if args.execute:
+        dry_run_mode = False
+    else:
+        dry_run_mode = args.dry_run  # This is True by default
     
     # Validate arguments
     if not os.path.exists(args.directory):
@@ -400,11 +402,13 @@ def validate_args(args):
     if not os.path.isdir(args.directory):
         print(f"Error: '{args.directory}' is not a directory.")
         sys.exit(1)
+    
+    return dry_run_mode
 
-def handle_confirmation(args):
+def handle_confirmation(args, dry_run_mode):
     """Handle user confirmation for the operation."""
     # Confirm action unless in dry-run mode or confirmation skipped
-    if not args.dry_run:
+    if not dry_run_mode:
         if not confirm_action(
             f"Rename video files in '{args.directory}'?",
             args.yes or is_non_interactive()
@@ -412,11 +416,11 @@ def handle_confirmation(args):
             print("Operation cancelled.")
             sys.exit(0)
 
-def handle_result(args, success):
+def handle_result(args, dry_run_mode, success):
     """Handle the result of the renaming operation."""
     if success:
-        if args.dry_run:
-            print("\\nDry run completed successfully. Use without --dry-run to execute.")
+        if dry_run_mode:
+            print("\\nDry run completed successfully. Use --execute to make changes.")
         else:
             print("\\nVideo files renamed successfully!")
     else:
@@ -430,23 +434,27 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Preview what would be renamed in current directory (dry run)
-  %(prog)s --dry-run
+  # Preview what would be renamed in current directory (dry-run mode, default)
+  %(prog)s
   
-  # Preview what would be renamed in specific directory (dry run)
-  %(prog)s "./Featurettes" --dry-run
+  # Preview what would be renamed in specific directory (dry-run mode, default)
+  %(prog)s "./Featurettes"
   
   # Actually rename files in current directory with confirmation
-  %(prog)s --movie-name "Movie Title"
+  %(prog)s --execute --movie-name "Movie Title"
   
   # Actually rename files in specific directory with confirmation
-  %(prog)s "./Deleted Scenes" --movie-name "Movie Title"
+  %(prog)s "./Deleted Scenes" --execute --movie-name "Movie Title"
   
-  # Rename files in current directory without confirmation (for automation)
-  %(prog)s -y
+  # Rename files without confirmation (for automation)
+  %(prog)s --execute -y
   
   # Rename files in specific directory without confirmation (for automation)
-  %(prog)s "./Behind the Scenes" -y
+  %(prog)s "./Behind the Scenes" --execute -y
+
+Cron Usage:
+  # Run daily to rename movie extras (non-interactive)
+  0 3 * * * /usr/local/bin/plex_movie_subdir_renamer "/movies/Featurettes" --execute -y
   
 
 """
@@ -464,8 +472,14 @@ Examples:
     )
     parser.add_argument(
         "--dry-run", 
+        action="store_true",
+        default=True,
+        help="Preview changes without modifying files (default: true)"
+    )
+    parser.add_argument(
+        "--execute", 
         action="store_true", 
-        help="Preview changes without modifying files"
+        help="Actually perform operations (overrides --dry-run)"
     )
     parser.add_argument(
         "-y", "--yes", 
@@ -495,12 +509,31 @@ Examples:
     
     args = parser.parse_args()
     
-    # Validate arguments
-    validate_args(args)
+    # Handle debug mode
+    if args.debug:
+        args.verbose = True
+    
+    # Validate arguments and get dry_run_mode
+    dry_run_mode = validate_args(args)
+    
+    # Display header with mode indicator
+    print(f"Plex Movie Subdirectory Renamer v2.1.0")
+    print("=" * 50)
+    
+    if dry_run_mode:
+        print("DRY-RUN MODE: No changes will be made")
+    else:
+        print("EXECUTE MODE: Files will be renamed")
+    
+    if args.debug:
+        print("Debug: ENABLED")
+    elif args.verbose:
+        print("Verbose: ENABLED")
+    print()
     
     # Create renamer instance
     renamer = PlexMovieSubdirRenamer(
-        dry_run=args.dry_run,
+        dry_run=dry_run_mode,
         force=args.force,
         verbose=args.verbose
     )
@@ -514,17 +547,17 @@ Examples:
         if args.verbose:
             print(f"Directory: {args.directory}")
             print(f"Movie name: {args.movie_name or 'auto-detect'}")
-            print(f"Mode: {'DRY RUN' if args.dry_run else 'EXECUTE'}")
+            print(f"Mode: {'DRY RUN' if dry_run_mode else 'EXECUTE'}")
             print("-" * 50)
         
         # Handle confirmation
-        handle_confirmation(args)
+        handle_confirmation(args, dry_run_mode)
         
         # Execute the renaming
         success = renamer.rename_featurettes(args.directory, args.movie_name)
         
         # Handle result
-        handle_result(args, success)
+        handle_result(args, dry_run_mode, success)
             
     except KeyboardInterrupt:
         print("\\nOperation cancelled by user.")
