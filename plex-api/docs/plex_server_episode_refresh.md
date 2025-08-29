@@ -93,10 +93,21 @@ To find an episode's rating key (ID):
 | `episode_hash` | Episode rating key (ID) from Plex (required) |
 | `--token TOKEN, -t` | Plex authentication token (overrides environment/file) |
 | `--server SERVER, -s` | Plex server URL (overrides environment/file, default: localhost:32400) |
+| `--no-banner` | Suppress banner display |
 | `--verbose, -v` | Show verbose output |
 | `--debug` | Show detailed debug output |
 | `--version` | Show program's version number and exit |
 | `--help, -h` | Show help message and exit |
+
+## Global Configuration Support
+
+The tool respects environment variables for default behavior:
+
+- `AUTO_EXECUTE=true` - Default to execute mode instead of dry-run
+- `AUTO_CONFIRM=true` - Skip confirmation prompts automatically
+- `QUIET_MODE=true` - Suppress banner display by default
+
+Configuration hierarchy: CLI arguments > Environment variables > Local .env > Global ~/.media-library-tools/.env
 
 ## Examples
 

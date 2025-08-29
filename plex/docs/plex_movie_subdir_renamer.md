@@ -57,10 +57,21 @@ cd media-library-tools/plex
 | `--dry-run` | Preview changes without making modifications (default) |
 | `-y, --yes` | Skip confirmation prompts (useful for scripting) |
 | `--force` | Force execution even if another instance is running |
+| `--no-banner` | Suppress banner display |
 | `--verbose` | Enable verbose output for debugging |
 | `--debug` | Enable debug output (implies --verbose) |
 | `--version` | Display version information |
 | `--help` | Show help message and exit |
+
+## Global Configuration Support
+
+The tool respects environment variables for default behavior:
+
+- `AUTO_EXECUTE=true` - Default to execute mode instead of dry-run
+- `AUTO_CONFIRM=true` - Skip confirmation prompts automatically
+- `QUIET_MODE=true` - Suppress banner display by default
+
+Configuration hierarchy: CLI arguments > Environment variables > Local .env > Global ~/.media-library-tools/.env
 
 ## File categorization
 

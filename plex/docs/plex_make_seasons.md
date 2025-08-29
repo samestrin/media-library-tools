@@ -56,11 +56,22 @@ Options:
   --dry-run               Show what would be done without making changes
   --force                 Force execution even if another instance is running
   --list-patterns         Show all supported season detection patterns
+  --no-banner             Suppress banner display
   --verbose, -v           Show detailed processing information
   --debug                 Show debug information for troubleshooting
   --version               Show version information
   --help, -h              Show this help message
 ```
+
+## Global Configuration Support
+
+The tool respects environment variables for default behavior:
+
+- `AUTO_EXECUTE=true` - Default to execute mode instead of dry-run
+- `AUTO_CONFIRM=true` - Skip confirmation prompts automatically
+- `QUIET_MODE=true` - Suppress banner display by default
+
+Configuration hierarchy: CLI arguments > Environment variables > Local .env > Global ~/.media-library-tools/.env
 
 ## Season detection patterns
 

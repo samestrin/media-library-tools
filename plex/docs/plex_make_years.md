@@ -58,8 +58,19 @@ chmod +x plex_make_years
 | `--force` | Force execution even if another instance is running |
 | `--year-range START END` | Valid year range (default: 1900-2030) |
 | `--list-patterns` | List all supported year detection patterns and exit |
+| `--no-banner` | Suppress banner display |
 | `--version` | Show version information |
 | `--help` | Show help message |
+
+## Global Configuration Support
+
+The tool respects environment variables for default behavior:
+
+- `AUTO_EXECUTE=true` - Default to execute mode instead of dry-run
+- `AUTO_CONFIRM=true` - Skip confirmation prompts automatically
+- `QUIET_MODE=true` - Suppress banner display by default
+
+Configuration hierarchy: CLI arguments > Environment variables > Local .env > Global ~/.media-library-tools/.env
 
 ## Year detection patterns
 

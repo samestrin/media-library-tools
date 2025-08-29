@@ -64,12 +64,23 @@ Options:
   --delete              Actually delete found directories (default: list only)
   --prune-at SIZE       Auto-delete when total size exceeds threshold (e.g., 50G, 2T)
   -y, --yes             Skip confirmation prompt (for non-interactive use)
+  --no-banner           Suppress banner display
   --verbose, -v         Show verbose output
   --debug               Show detailed debug output for all directories
   --force               Force execution even if another instance is running
   --version             Show version information
   --help, -h            Show help message
 ```
+
+### Global Configuration Support
+
+The tool respects environment variables for default behavior:
+
+- `AUTO_EXECUTE=true` - Default to execute mode instead of dry-run
+- `AUTO_CONFIRM=true` - Skip confirmation prompts automatically
+- `QUIET_MODE=true` - Suppress banner display by default
+
+Configuration hierarchy: CLI arguments > Environment variables > Local .env > Global ~/.media-library-tools/.env
 
 ### Examples
 

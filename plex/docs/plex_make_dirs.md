@@ -64,8 +64,19 @@ chmod +x plex_make_dirs
 | `--types EXT [EXT ...]` | File extensions to process (e.g., mp4 mkv avi) |
 | `--exclude EXT [EXT ...]` | File extensions to exclude from processing |
 | `--list-types` | List all supported file types and exit |
+| `--no-banner` | Suppress banner display |
 | `--version` | Show version information |
 | `--help` | Show help message |
+
+## Global Configuration Support
+
+The tool respects environment variables for default behavior:
+
+- `AUTO_EXECUTE=true` - Default to execute mode instead of dry-run
+- `AUTO_CONFIRM=true` - Skip confirmation prompts automatically
+- `QUIET_MODE=true` - Suppress banner display by default
+
+Configuration hierarchy: CLI arguments > Environment variables > Local .env > Global ~/.media-library-tools/.env
 
 ## Supported file types
 

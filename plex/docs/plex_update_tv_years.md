@@ -111,6 +111,7 @@ Options:
   --execute            Actually perform the renaming operations (overrides --dry-run)
   -y, --yes            Skip confirmation prompts (for non-interactive use)
   --force              Force execution even if another instance is running
+  --no-banner          Suppress banner display
   --verbose, -v        Show verbose output with detailed processing information
   --debug              Show detailed debug output including API calls
   
@@ -123,6 +124,16 @@ Cache Management:
   --version            Show version number and exit
   -h, --help           Show help message and exit
 ```
+
+### Global Configuration Support
+
+The tool respects environment variables for default behavior:
+
+- `AUTO_EXECUTE=true` - Default to execute mode instead of dry-run
+- `AUTO_CONFIRM=true` - Skip confirmation prompts automatically
+- `QUIET_MODE=true` - Suppress banner display by default
+
+Configuration hierarchy: CLI arguments > Environment variables > Local .env > Global ~/.media-library-tools/.env
 
 ### Examples
 
