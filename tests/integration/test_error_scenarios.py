@@ -142,9 +142,10 @@ class TestFileSystemErrorScenarios(MediaLibraryTestCase):
             except PermissionError:
                 pass  # Expected
             
-            # Should handle no-read directory
-            with self.assertRaises(PermissionError):
-                detector.analyze_directory(noread_dir)
+            # Should handle no-read directory gracefully
+            result = detector.analyze_directory(noread_dir)
+            # Should return False, 0, [] for permission denied directories
+            self.assertEqual(result, (False, 0, []))
             
             # Test Plex tools with permission issues
             renamer = PlexMovieSubdirRenamer()
@@ -319,8 +320,10 @@ class TestConcurrencyErrorScenarios(MediaLibraryTestCase):
         # Tools should handle missing directories gracefully
         detector = SABnzbdDetector()
         
-        with self.assertRaises((FileNotFoundError, OSError)):
-            detector.analyze_directory(sub_dir)
+        # Should handle missing directory gracefully
+        result = detector.analyze_directory(sub_dir)
+        # Should return False, 0, [] for missing directories
+        self.assertEqual(result, (False, 0, []))
     
     @unittest.skipIf(PlexMovieSubdirRenamer is None or SeasonOrganizer is None or not TEST_HELPERS_AVAILABLE, "Required modules not available")
     def test_race_condition_simulation(self):

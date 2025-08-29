@@ -222,7 +222,7 @@ class TestCLIStandardization(unittest.TestCase):
                 "Script should default to dry-run mode")
         
         # Test execute mode
-        result = self._run_script_with_args(script_path, [str(test_dir), '--execute'], timeout=10)
+        result = self._run_script_with_args(script_path, [str(test_dir), '--execute', '--yes'], timeout=10)
         if result.returncode == 0:
             output = result.stdout + result.stderr
             self.assertIn('EXECUTE MODE', output,

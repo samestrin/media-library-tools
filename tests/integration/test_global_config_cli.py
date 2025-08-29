@@ -76,6 +76,7 @@ class TestGlobalConfigCLI(unittest.TestCase):
         # Create a namespace with necessary imports
         namespace = {
             '__file__': str(script_path),
+            '__name__': '__main__',  # Set __name__ to trigger main() execution
             'os': os,
             'sys': sys,
             'Path': Path,
