@@ -14,6 +14,24 @@ import os
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+# Import the actual SeasonOrganizer from plex_make_seasons
+try:
+    import importlib.util
+    script_path = project_root / 'plex' / 'plex_make_seasons'
+    spec = importlib.util.spec_from_file_location("plex_make_seasons", script_path)
+    if spec and spec.loader:
+        plex_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(plex_module)
+        SeasonOrganizer = plex_module.SeasonOrganizer
+        IMPLEMENTATION_AVAILABLE = True
+    else:
+        SeasonOrganizer = None
+        IMPLEMENTATION_AVAILABLE = False
+except Exception as e:
+    print(f"Warning: Could not import SeasonOrganizer: {e}")
+    SeasonOrganizer = None
+    IMPLEMENTATION_AVAILABLE = False
+
 
 class TestExtendedSeasonPatterns(unittest.TestCase):
     """Test cases for new extended season detection patterns."""
@@ -358,10 +376,136 @@ class TestValidationFunctions(unittest.TestCase):
                                       f"Confidence too low for '{filename}': {confidence}")
 
 
+@unittest.skipIf(not IMPLEMENTATION_AVAILABLE, "SeasonOrganizer implementation not available")
+class TestActualImplementation(unittest.TestCase):
+    """Integration tests with the actual plex_make_seasons implementation."""
+    
+    def setUp(self):
+        """Set up test with actual SeasonOrganizer."""
+        self.organizer = SeasonOrganizer(dry_run=True)
+    
+    def test_extended_season_patterns_integration(self):
+        """Test extended season patterns with actual implementation."""
+        test_cases = [
+            # Extended season patterns
+            ("Show s2025e01.mkv", 2025, "Extended season S###/####E## format"),
+            ("Series.S2030E05.mp4", 2030, "Extended season S###/####E## format"),
+            ("Title Season 100 Episode 1.avi", 100, "Extended Season #### format"),
+        ]
+        
+        for filename, expected_season, expected_pattern in test_cases:
+            with self.subTest(filename=filename):
+                season_num, pattern_desc, matched_text = self.organizer.extract_season_info(filename)
+                self.assertEqual(season_num, expected_season, 
+                               f"Season number mismatch for '{filename}'")
+                self.assertEqual(pattern_desc, expected_pattern,
+                               f"Pattern description mismatch for '{filename}'")
+                
+                # Test directory name generation
+                dir_name = self.organizer.generate_season_directory_name(season_num, pattern_desc)
+                self.assertEqual(dir_name, f"Season {expected_season}",
+                               f"Directory name should not be zero-padded for extended seasons")
+    
+    def test_numeric_only_patterns_integration(self):
+        """Test numeric-only patterns with actual implementation."""
+        test_cases = [
+            ("Show ep01.mkv", 1, "Episode-prefixed numeric format"),
+            ("Series - 02.mp4", 2, "Separated numeric format"),
+            ("Title.03.avi", 3, "Separated numeric format"),
+        ]
+        
+        for filename, expected_season, expected_pattern in test_cases:
+            with self.subTest(filename=filename):
+                season_num, pattern_desc, matched_text = self.organizer.extract_season_info(filename)
+                self.assertEqual(season_num, expected_season,
+                               f"Season number mismatch for '{filename}'")
+                self.assertEqual(pattern_desc, expected_pattern,
+                               f"Pattern description mismatch for '{filename}'")
+    
+    def test_enhanced_alternative_patterns_integration(self):
+        """Test enhanced alternative patterns with actual implementation."""
+        test_cases = [
+            ("Show 100x01.mkv", 100, "Enhanced season #x# format"),
+            ("Series 2x05.mp4", 2, "Enhanced season #x# format"),
+            ("Movie 500x01.avi", 500, "Enhanced season #x# format"),
+        ]
+        
+        for filename, expected_season, expected_pattern in test_cases:
+            with self.subTest(filename=filename):
+                season_num, pattern_desc, matched_text = self.organizer.extract_season_info(filename)
+                self.assertEqual(season_num, expected_season,
+                               f"Season number mismatch for '{filename}'")
+                self.assertEqual(pattern_desc, expected_pattern,
+                               f"Pattern description mismatch for '{filename}'")
+    
+    def test_false_positive_prevention_integration(self):
+        """Test false positive prevention with actual implementation."""
+        false_positives = [
+            "Movie.720p.mkv",
+            "Show.1080p.x264.mp4", 
+            "Series.480p.WEBRip.avi",
+            "Title.25fps.mkv",
+            "Movie.5000kbps.mp4",
+        ]
+        
+        for filename in false_positives:
+            with self.subTest(filename=filename):
+                season_num, pattern_desc, matched_text = self.organizer.extract_season_info(filename)
+                self.assertIsNone(season_num,
+                                f"Should not match false positive: '{filename}' but got {pattern_desc}")
+    
+    def test_range_validation_integration(self):
+        """Test range validation with actual implementation."""
+        edge_cases = [
+            # Should be rejected - outside ranges
+            ("Movie s99e01.mkv", None),   # Below extended range  
+            ("Series s2051e01.mp4", None),  # Above extended range
+            ("Show ep51.mkv", None),      # Above numeric range
+            
+            # Should be accepted - within ranges
+            ("Movie s100e01.mkv", 100),   # Valid extended range start
+            ("Series s2050e01.mp4", 2050), # Valid extended range end
+            ("Show ep01.mkv", 1),         # Valid numeric range start
+            ("Title ep50.mkv", 50),       # Valid numeric range end
+        ]
+        
+        for filename, expected_season in edge_cases:
+            with self.subTest(filename=filename):
+                season_num, pattern_desc, matched_text = self.organizer.extract_season_info(filename)
+                self.assertEqual(season_num, expected_season,
+                               f"Range validation failed for '{filename}': expected {expected_season}, got {season_num}")
+    
+    def test_pattern_priority_integration(self):
+        """Test that patterns are applied in correct priority order."""
+        priority_cases = [
+            # Standard pattern should win over numeric
+            ("Show S01E05 - 01.mkv", 1, "S{:02d}E format"),
+            
+            # Extended should be detected properly
+            ("Series s2025e01.mkv", 2025, "Extended season S###/####E## format"),
+            
+            # Alternative should win over fallback patterns
+            ("Title 5x01.mkv", 5, "Enhanced season #x# format"),
+        ]
+        
+        for filename, expected_season, expected_pattern in priority_cases:
+            with self.subTest(filename=filename):
+                season_num, pattern_desc, matched_text = self.organizer.extract_season_info(filename)
+                self.assertEqual(season_num, expected_season,
+                               f"Priority test failed for '{filename}': expected season {expected_season}, got {season_num}")
+                self.assertEqual(pattern_desc, expected_pattern,
+                               f"Priority test failed for '{filename}': expected '{expected_pattern}', got '{pattern_desc}'")
+
+
 if __name__ == '__main__':
     # Set up test environment
     print("Extended Season Detection - Unit Tests")
     print("=" * 50)
+    
+    if IMPLEMENTATION_AVAILABLE:
+        print("✅ SeasonOrganizer implementation loaded successfully")
+    else:
+        print("⚠️  SeasonOrganizer implementation not available - integration tests will be skipped")
     
     # Create test suite
     loader = unittest.TestLoader()
@@ -370,6 +514,8 @@ if __name__ == '__main__':
     # Add test cases
     suite.addTest(loader.loadTestsFromTestCase(TestExtendedSeasonPatterns))
     suite.addTest(loader.loadTestsFromTestCase(TestValidationFunctions))
+    if IMPLEMENTATION_AVAILABLE:
+        suite.addTest(loader.loadTestsFromTestCase(TestActualImplementation))
     
     # Run tests
     runner = unittest.TextTestRunner(verbosity=2)
