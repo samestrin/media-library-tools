@@ -124,10 +124,11 @@ class SeasonOrganizer:
     """Main class for organizing TV show episodes into season directories."""
     
     def __init__(self, dry_run: bool = False, force: bool = False, 
-                 target_dir: Optional[Path] = None):
+                 target_dir: Optional[Path] = None, depth: int = 1):
         self.dry_run = dry_run
         self.force = force
         self.target_dir = target_dir
+        self.depth = depth
         self.lock_file = None
         
         # Video file extensions
@@ -229,6 +230,45 @@ class SeasonOrganizer:
     def is_video_file(self, file_path: Path) -> bool:
         """Check if a file is a video file based on its extension."""
         return file_path.suffix.lower() in self.video_extensions
+    
+    def find_video_files_with_depth(self, source_dir: Path, max_depth: int) -> List[Path]:
+        """Find video files up to a specified depth in the directory structure.
+        
+        Args:
+            source_dir: The directory to search in
+            max_depth: Maximum depth to search (1 = only immediate files, 2 = immediate subdirs, etc.)
+            
+        Returns:
+            List of Path objects for video files found within the depth limit
+        """
+        video_files = []
+        
+        # Use a queue-based approach to avoid recursion limits
+        # Each item in the queue is a tuple of (directory_path, current_depth)
+        queue = [(source_dir, 1)]
+        
+        while queue:
+            current_dir, current_depth = queue.pop(0)
+            
+            # Skip if we've exceeded the maximum depth
+            if current_depth > max_depth:
+                continue
+                
+            try:
+                # Iterate through items in the current directory
+                for item in current_dir.iterdir():
+                    if item.is_file() and self.is_video_file(item):
+                        # Found a video file
+                        video_files.append(item)
+                    elif item.is_dir() and current_depth < max_depth:
+                        # Add subdirectory to queue for processing
+                        queue.append((item, current_depth + 1))
+            except (PermissionError, OSError) as e:
+                # Skip directories we can't access
+                print(f"  Warning: Cannot access directory {current_dir}: {e}")
+                continue
+                
+        return video_files
     
     def validate_numeric_season(self, filename: str, match_text: str, season_num: int, 
                               pattern_desc: str) -> Tuple[bool, float]:
@@ -464,20 +504,21 @@ class SeasonOrganizer:
         if self.dry_run:
             print("DRY RUN MODE - No files will be moved")
         print(f"Video extensions: {', '.join(sorted(self.video_extensions))}")
+        print(f"Search depth: {self.depth}")
         print()
         
-        # Get all files in the directory (not subdirectories)
-        all_files = [f for f in source_dir.iterdir() if f.is_file()]
-        video_files = [f for f in all_files if self.is_video_file(f)]
+        # Get all video files up to the specified depth
+        video_files = self.find_video_files_with_depth(source_dir, self.depth)
+        all_files = []  # We don't count all files anymore, just video files
         
-        self.stats['total_files'] = len(all_files)
+        self.stats['total_files'] = len(video_files)
         self.stats['video_files'] = len(video_files)
         
         if not video_files:
             print("No video files found to process.")
             return True
         
-        print(f"Found {len(video_files)} video files to process (out of {len(all_files)} total files):")
+        print(f"Found {len(video_files)} video files to process:")
         
         # Process each video file
         for i, file_path in enumerate(video_files, 1):
@@ -497,7 +538,6 @@ class SeasonOrganizer:
         print("PROCESSING SUMMARY")
         print("=" * 60)
         
-        print(f"Total files found: {self.stats['total_files']}")
         print(f"Video files found: {self.stats['video_files']}")
         
         if self.dry_run:
@@ -543,6 +583,8 @@ Examples:
   %(prog)s /path/to/tv/show --execute -y        # Organize specific directory without confirmation
   %(prog)s --target /organized --execute        # Move current directory files to different location
   %(prog)s /path/to/tv/show --target /organized --execute # Move specific directory files to different location
+  %(prog)s --depth 2 --execute                  # Search for files up to 2 levels deep
+  %(prog)s --depth 3 --execute                  # Search for files up to 3 levels deep
   %(prog)s --verbose --execute                  # Show verbose output while organizing
   %(prog)s --debug --execute                    # Show detailed debug output while organizing
   %(prog)s --force --execute                    # Force run in current directory (bypass lock)
@@ -605,6 +647,12 @@ Cron Usage:
         '--no-banner',
         action='store_true',
         help='Suppress banner display'
+    )
+    parser.add_argument(
+        '--depth',
+        type=int,
+        default=1,
+        help='Depth level for searching video files (default: 1). Use 2 or higher to search in subdirectories.'
     )
     parser.add_argument(
         '--version',
@@ -689,7 +737,8 @@ Cron Usage:
     organizer = SeasonOrganizer(
         dry_run=dry_run_mode,
         force=args.force,
-        target_dir=target_dir
+        target_dir=target_dir,
+        depth=args.depth
     )
     
     # Confirmation logic for non-interactive environments
