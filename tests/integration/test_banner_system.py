@@ -29,6 +29,7 @@ class TestBannerSystem(unittest.TestCase):
             'plex/plex_make_years',
             'plex/plex_move_movie_extras',
             'plex/plex_movie_subdir_renamer',
+            'plex-api/plex_server_episode_refresh',
             'SABnzbd/sabnzbd_cleanup'
         ]
         
