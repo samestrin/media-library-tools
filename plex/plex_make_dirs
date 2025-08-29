@@ -409,10 +409,13 @@ class PlexDirectoryCreator:
 class BannerHelpAction(argparse._HelpAction):
     """Custom help action that displays banner before help."""
     def __call__(self, parser, namespace, values, option_string=None):
-        # Display banner before help
+        # Display banner before help (respect --no-banner flag)
+        # Check sys.argv since argparse hasn't fully parsed yet
+        import sys
+        no_banner = '--no-banner' in sys.argv
         display_banner("plex_make_dirs", "2.0.0", 
-                      "Plex Directory Creator - Convert files to directory structure",
-                      False, False)
+                      "create organized directory structures for Plex media libraries",
+                      no_banner, False)
         parser.print_help()
         parser.exit()
 
@@ -420,7 +423,7 @@ class BannerHelpAction(argparse._HelpAction):
 def main():
     """Main function with argument parsing and execution."""
     parser = argparse.ArgumentParser(
-        description="Plex Directory Creator - Convert files to directory structure",
+        description="",
         add_help=False,  # Disable default help to use custom banner help
         epilog="""
 Examples:
@@ -442,6 +445,13 @@ Cron Usage:
   0 4 * * * /usr/local/bin/plex_make_dirs /path/to/media --execute -y
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    
+    # Add custom help argument with banner
+    parser.add_argument(
+        '-h', '--help',
+        action=BannerHelpAction,
+        help='show this help message and exit'
     )
     
     parser.add_argument(
@@ -517,6 +527,10 @@ Cron Usage:
     
     # Handle --list-types
     if args.list_types:
+        # Display banner for consistency
+        display_banner("plex_make_dirs", "2.0.0", 
+                      "create organized directory structures for Plex media libraries",
+                      args.no_banner, False)
         creator = PlexDirectoryCreator()
         print("Supported file types:")
         for ext in sorted(creator.default_media_types):

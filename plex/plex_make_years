@@ -618,6 +618,14 @@ Cron Usage:
     
     # Handle --list-patterns
     if args.list_patterns:
+        # Read global configuration for banner display
+        quiet_mode = read_global_config_bool('QUIET_MODE', False)
+        
+        # Display banner before listing patterns
+        display_banner("plex_make_years", "2.1.0", 
+                      "create year-based directory structures for movies",
+                      args.no_banner, quiet_mode)
+        
         organizer = YearOrganizer()
         print("Supported year detection patterns:")
         for pattern, description in organizer.year_patterns:
