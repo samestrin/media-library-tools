@@ -16,6 +16,14 @@ This directory contains self-contained Python tools designed to help you organiz
 - **TV show organization**: Automatic season directory creation and episode organization
 - **Self-contained**: Python tools use only standard library modules
 
+## Banner System
+
+All Plex tools display a consistent ASCII art banner by default that identifies them as part of the media-library-tools project. Banner display can be controlled via:
+
+- `--no-banner` flag for one-time suppression
+- `QUIET_MODE=true` global configuration for permanent suppression  
+- Automatic suppression in non-interactive environments (cron, CI/CD)
+
 ## Installation
 
 These tools require Python 3.6+ and use only standard library modules.

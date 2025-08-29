@@ -23,6 +23,14 @@ A sophisticated Python script that safely identifies and removes temporary/incom
 - **Automation-friendly**: Cron-compatible with automatic non-interactive detection
 - **Self-contained**: Uses only Python standard library modules
 
+## Banner System
+
+All SABnzbd tools display a consistent ASCII art banner by default that identifies them as part of the media-library-tools project. Banner display can be controlled via:
+
+- `--no-banner` flag for one-time suppression
+- `QUIET_MODE=true` global configuration for permanent suppression
+- Automatic suppression in non-interactive environments (cron, CI/CD)
+
 ## Installation
 
 These tools require Python 3.6+ and use only standard library modules.

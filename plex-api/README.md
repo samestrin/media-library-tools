@@ -15,6 +15,14 @@ This collection provides API-based tools for Plex Media Server management, focus
 - **Self-contained**: No external dependencies, uses only Python standard library
 - **Zero installation**: Download, make executable, and run immediately
 
+## Banner System
+
+All Plex API tools display a consistent ASCII art banner by default that identifies them as part of the media-library-tools project. Banner display can be controlled via:
+
+- `--no-banner` flag for one-time suppression
+- `QUIET_MODE=true` global configuration for permanent suppression
+- Automatic suppression in non-interactive environments (cron, CI/CD)
+
 ## Tools
 
 ### `plex_server_episode_refresh`

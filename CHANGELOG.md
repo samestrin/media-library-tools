@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Standardized mode indicators: "DRY-RUN MODE" vs "EXECUTE MODE" 
   - Consistent help text formatting with cron usage examples
   - Backward compatibility maintained for all existing usage patterns
+- **Consistent Banner System**: Standardized ASCII art banner across all tools
+  - Professional "MEDIABRARYTOOLS" ASCII art displayed by default
+  - `--no-banner` flag to suppress banner display for automation
+  - `QUIET_MODE` global configuration for permanent banner suppression
+  - Automatic banner suppression in non-interactive environments (cron, CI/CD)
+  - Zero-dependency design with embedded banner functions
 
 ### Enhanced
 - **sabnzbd_cleanup**: Added `--execute` as alias for `--delete` while maintaining backward compatibility

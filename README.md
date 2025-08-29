@@ -31,6 +31,7 @@ All tools now follow a completely standardized command-line interface with consi
 ### Standard Arguments (Available on All Tools)
 - `--dry-run` - **Default behavior**: Preview changes without making modifications
 - `--execute` - Override dry-run mode to actually perform operations  
+- `--no-banner` - Suppress banner display
 - `--verbose` - Show detailed operation information
 - `--debug` - Show comprehensive debug output (includes verbose)
 - `-y` / `--yes` - Skip confirmation prompts for automation
@@ -46,6 +47,7 @@ Every tool clearly displays its current mode:
 Tools respect environment variables for default behavior:
 - `AUTO_EXECUTE=true` - Default to execute mode instead of dry-run
 - `AUTO_CONFIRM=true` - Skip confirmation prompts automatically
+- `QUIET_MODE=true` - Suppress banner display by default
 
 ### Cron-Friendly Operation
 All tools include comprehensive automation support with:
