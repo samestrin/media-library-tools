@@ -143,8 +143,9 @@ def is_non_interactive() -> bool:
 class SeasonOrganizer:
     """Organizes video files into season directories."""
     
-    def __init__(self, dry_run: bool = False):
+    def __init__(self, dry_run: bool = False, depth: int = 1):
         self.dry_run = dry_run
+        self.depth = depth
         self.video_extensions = {
             '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', 
             '.m4v', '.mpg', '.mpeg', '.3gp', '.ogv', '.ts', '.m2ts'
@@ -174,6 +175,45 @@ class SeasonOrganizer:
     def is_video_file(self, file_path: Path) -> bool:
         """Check if file is a video file based on extension."""
         return file_path.suffix.lower() in self.video_extensions
+    
+    def find_video_files_with_depth(self, source_dir: Path, max_depth: int) -> List[Path]:
+        """Find video files up to a specified depth in the directory structure.
+        
+        Args:
+            source_dir: The directory to search in
+            max_depth: Maximum depth to search (1 = only immediate files, 2 = immediate subdirs, etc.)
+            
+        Returns:
+            List of Path objects for video files found within the depth limit
+        """
+        video_files = []
+        
+        # Use a queue-based approach to avoid recursion limits
+        # Each item in the queue is a tuple of (directory_path, current_depth)
+        queue = [(source_dir, 1)]
+        
+        while queue:
+            current_dir, current_depth = queue.pop(0)
+            
+            # Skip if we've exceeded the maximum depth
+            if current_depth > max_depth:
+                continue
+                
+            try:
+                # Iterate through items in the current directory
+                for item in current_dir.iterdir():
+                    if item.is_file() and self.is_video_file(item):
+                        # Found a video file
+                        video_files.append(item)
+                    elif item.is_dir() and current_depth < max_depth:
+                        # Add subdirectory to queue for processing
+                        queue.append((item, current_depth + 1))
+            except (PermissionError, OSError) as e:
+                # Skip directories we can't access
+                print(f"  Warning: Cannot access directory {current_dir}: {e}")
+                continue
+                
+        return video_files
     
     def validate_season_match(self, filename: str, match_text: str, season_num: int, 
                             pattern_index: int) -> Tuple[bool, float]:
@@ -326,9 +366,8 @@ class SeasonOrganizer:
             return stats
         
         try:
-            # Get all video files in the directory (not in subdirectories)
-            video_files = [f for f in show_dir.iterdir() 
-                          if f.is_file() and self.is_video_file(f)]
+            # Get all video files up to the specified depth
+            video_files = self.find_video_files_with_depth(show_dir, self.depth)
             
             stats['total_files'] = len(video_files)
             
