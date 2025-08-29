@@ -406,10 +406,22 @@ class PlexDirectoryCreator:
             print("\n⚪ No files were processed.")
 
 
+class BannerHelpAction(argparse._HelpAction):
+    """Custom help action that displays banner before help."""
+    def __call__(self, parser, namespace, values, option_string=None):
+        # Display banner before help
+        display_banner("plex_make_dirs", "2.0.0", 
+                      "Plex Directory Creator - Convert files to directory structure",
+                      False, False)
+        parser.print_help()
+        parser.exit()
+
+
 def main():
     """Main function with argument parsing and execution."""
     parser = argparse.ArgumentParser(
         description="Plex Directory Creator - Convert files to directory structure",
+        add_help=False,  # Disable default help to use custom banner help
         epilog="""
 Examples:
   %(prog)s                                   # Preview changes in current directory (dry-run default)
