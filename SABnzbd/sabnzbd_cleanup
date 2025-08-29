@@ -151,51 +151,102 @@ class SABnzbdDetector:
                 except PermissionError:
                     pass  # Skip if we can't check
         
-        # Check for NZB files (HIGH confidence)
+        # Single-pass file system scan for optimal performance
+        nzb_files = []
+        par2_files = []
+        rar_files = []
+        has_nzb_files = False
+        has_par2_files = False
+        has_unpack_subdir = False
+        
         try:
-            nzb_files = list(dir_path.glob('*.nzb'))
-            if nzb_files:
-                indicators.append(f"NZB files ({len(nzb_files)})")
-                score += 10
-        except PermissionError:
-            pass
-            
-        # Check for PAR2 files (search immediate dir and one level deep)
-        try:
-            # First check immediate directory
-            par2_files = list(dir_path.glob('*.par2'))
-            # Then check one level deep
-            par2_files.extend(list(dir_path.glob('*/*.par2')))
-            # Limit to prevent excessive searching
-            par2_files = par2_files[:100]
-            
-            if par2_files:
-                indicators.append(f"PAR2 files ({len(par2_files)})")
-                score += 6
-                if len(par2_files) > 3:
-                    score += 3
-        except PermissionError:
-            pass
+            # Single directory iteration to categorize all files and subdirectories
+            for item in dir_path.iterdir():
+                try:
+                    if item.is_file():
+                        file_suffix = item.suffix.lower()
+                        file_name = item.name.lower()
+                        
+                        # Categorize files by extension in single pass
+                        if file_suffix == '.nzb':
+                            nzb_files.append(item)
+                        elif file_suffix == '.par2':
+                            par2_files.append(item)
+                        elif file_suffix == '.rar':
+                            if len(rar_files) < 100:  # Limit to prevent memory issues
+                                rar_files.append(item)
+                        elif file_suffix.startswith('.r') and len(file_suffix) == 4:
+                            # Check for .r00, .r01 etc pattern
+                            if file_suffix[2:].isdigit() and len(rar_files) < 150:
+                                rar_files.append(item)
+                                
+                    elif item.is_dir():
+                        # Check for unpack directories while we're iterating
+                        if '_UNPACK_' in item.name or 'EXTRACT_' in item.name:
+                            has_unpack_subdir = True
+                            
+                except (PermissionError, OSError):
+                    continue  # Skip inaccessible items
+                    
+            # Check one level deeper for PAR2 files (limited search)
+            try:
+                for subdir in dir_path.iterdir():
+                    if subdir.is_dir() and len(par2_files) < 100:
+                        try:
+                            for sub_item in subdir.iterdir():
+                                if sub_item.is_file() and sub_item.suffix.lower() == '.par2':
+                                    par2_files.append(sub_item)
+                                    if len(par2_files) >= 100:
+                                        break
+                        except (PermissionError, OSError):
+                            continue
+                        if len(par2_files) >= 100:
+                            break
+            except (PermissionError, OSError):
+                pass
                 
-        # Check for RAR files
-        try:
-            rar_files = list(dir_path.glob('*.rar'))[:100]  # Limit search
-            # Also check for split RAR files
-            rar_files.extend(list(dir_path.glob('*.r[0-9][0-9]'))[:50])
+        except (PermissionError, OSError):
+            # If we can't scan the directory, fall back to original glob-based approach
+            try:
+                nzb_files = list(dir_path.glob('*.nzb'))
+                par2_files = list(dir_path.glob('*.par2'))
+                par2_files.extend(list(dir_path.glob('*/*.par2'))[:100])
+                rar_files = list(dir_path.glob('*.rar'))[:100]
+                rar_files.extend(list(dir_path.glob('*.r[0-9][0-9]'))[:50])
+            except (PermissionError, OSError):
+                pass  # If all fails, continue with empty lists
+        
+        # Set flags based on found files
+        has_nzb_files = len(nzb_files) > 0
+        has_par2_files = len(par2_files) > 0
+        
+        # Process results and update score
+        if has_nzb_files:
+            indicators.append(f"NZB files ({len(nzb_files)})")
+            score += 10
             
-            if rar_files:
-                # RAR with PAR2 or NZB = strong indicator
-                if 'par2_files' in locals() and par2_files:
-                    indicators.append(f"RAR files ({len(rar_files)}) with PAR2")
-                    score += 6
-                elif 'nzb_files' in locals() and nzb_files:
-                    indicators.append(f"RAR files ({len(rar_files)}) with NZB")
-                    score += 6
-                elif len(rar_files) > 10:
-                    indicators.append(f"Many RAR files ({len(rar_files)})")
-                    score += 2
-        except PermissionError:
-            pass
+        if has_par2_files:
+            indicators.append(f"PAR2 files ({len(par2_files)})")
+            score += 6
+            if len(par2_files) > 3:
+                score += 3
+                
+        if rar_files:
+            # RAR with PAR2 or NZB = strong indicator
+            if has_par2_files:
+                indicators.append(f"RAR files ({len(rar_files)}) with PAR2")
+                score += 6
+            elif has_nzb_files:
+                indicators.append(f"RAR files ({len(rar_files)}) with NZB")
+                score += 6
+            elif len(rar_files) > 10:
+                indicators.append(f"Many RAR files ({len(rar_files)})")
+                score += 2
+                
+        # Add unpack directory score if found during scan
+        if has_unpack_subdir:
+            indicators.append("SABnzbd unpack directory")
+            score += 12
                 
         # Check directory name patterns
         # Pattern 1: ends with .1, .2, etc (retry pattern) using set lookup
@@ -213,33 +264,24 @@ class SABnzbdDetector:
             indicators.append("TV show retry pattern")
             score += 5
             
-        # Check for _UNPACK_ or EXTRACT_ subdirectories
-        try:
-            for subdir in dir_path.iterdir():
-                if subdir.is_dir() and ('_UNPACK_' in subdir.name or 'EXTRACT_' in subdir.name):
-                    indicators.append("SABnzbd unpack directory")
-                    score += 12
-                    break
-        except PermissionError:
-            pass
+        # Unpack directory check already handled in single-pass scan above
                 
-        # Determine threshold
+        # Determine threshold using boolean flags instead of locals() checks
         threshold = 10
         
         # Special cases for lower threshold
-        if 'nzb_files' in locals() and nzb_files:
+        if has_nzb_files:
             threshold = 5
             self.log_debug(f"  Threshold lowered to 5 (NZB files present)")
-        elif 'par2_files' in locals() and par2_files:
+        elif has_par2_files:
             threshold = 8
             self.log_debug(f"  Threshold lowered to 8 (PAR2 files present)")
-        elif any(x in dirname for x in ['par2', 'yEnc', '.1', '.2', '.3']):
+        elif any(pattern in dirname for pattern in self.usenet_name_patterns) or dirname[-2:] in self.retry_suffixes:
             threshold = 8
             self.log_debug(f"  Threshold lowered to 8 (naming pattern)")
             
-        # Override: NZB + PAR2 = definitely SABnzbd
-        if ('nzb_files' in locals() and nzb_files and 
-            'par2_files' in locals() and par2_files):
+        # Override: NZB + PAR2 = definitely SABnzbd (using boolean flags)
+        if has_nzb_files and has_par2_files:
             self.log_debug(f"  → OVERRIDE: NZB + PAR2 = definitive SABnzbd")
             return True, score, indicators
             
