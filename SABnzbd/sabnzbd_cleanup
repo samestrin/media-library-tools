@@ -11,11 +11,15 @@ import argparse
 import subprocess
 import fcntl
 import tempfile
+import re
 from pathlib import Path
 from typing import List, Tuple, Dict, Optional
 import shutil
 
 VERSION = "2.2"
+
+# Precompiled patterns for module-level functions
+SIZE_PATTERN = re.compile(r'^(\d+(?:\.\d+)?)([BKMGT]?)$')
 
 
 def display_banner(script_name: str, version: str, description: str, 
@@ -51,6 +55,16 @@ class SABnzbdDetector:
             'permission_denied': 0
         }
         
+        # Precompiled regex patterns for performance optimization
+        self.tv_show_pattern = re.compile(r'S\d+E\d+.*\.\d+$')
+        
+        # File pattern sets for efficient checking
+        self.bittorrent_extensions = {'.torrent', '.resume', '.fastresume', '.!ut', '.dat'}
+        self.bittorrent_name_patterns = {'torrent', 'bt_', 'bittorrent'}
+        self.admin_files = {'__admin__', 'SABnzbd_nzf', 'SABnzbd_nzo'}
+        self.usenet_name_patterns = {'par2', 'yEnc', 'nzb'}
+        self.retry_suffixes = {'.1', '.2', '.3', '.4', '.5'}
+        
     def log_verbose(self, msg):
         if self.verbose or self.debug:
             print(f"[VERBOSE] {msg}", file=sys.stderr)
@@ -63,21 +77,24 @@ class SABnzbdDetector:
         """Check if directory appears to be a BitTorrent download"""
         try:
             indicators = []
-            
-            # Check for .torrent files
-            if list(dir_path.glob('*.torrent')):
-                indicators.append(".torrent files")
-                
-            # Check for BitTorrent client files
-            bt_patterns = ['*.resume', '*.fastresume', '*.!ut', '*.dat']
-            for pattern in bt_patterns:
-                if list(dir_path.glob(pattern)):
-                    indicators.append(f"{pattern} files")
-                    break
-                    
-            # Check directory name
             dirname = dir_path.name
-            if any(x in dirname.lower() for x in ['torrent', 'bt_', 'bittorrent']):
+            
+            # Single pass through directory to check for BitTorrent files
+            try:
+                files = list(dir_path.iterdir())
+                file_extensions = {f.suffix for f in files if f.is_file()}
+                
+                # Check for BitTorrent file extensions using set intersection
+                if self.bittorrent_extensions & file_extensions:
+                    matching_extensions = self.bittorrent_extensions & file_extensions
+                    indicators.append(f"BitTorrent files: {', '.join(matching_extensions)}")
+                    
+            except (PermissionError, OSError):
+                pass  # Continue with other checks if file listing fails
+                    
+            # Check directory name for BitTorrent patterns
+            dirname_lower = dirname.lower()
+            if any(pattern in dirname_lower for pattern in self.bittorrent_name_patterns):
                 indicators.append("BitTorrent naming")
                 
             if indicators:
@@ -116,15 +133,23 @@ class SABnzbdDetector:
             self.log_debug(f"  → Skipping: BitTorrent directory")
             return False, 0, []
         
-        # Check for SABnzbd admin files (HIGHEST confidence)
-        admin_files = ['__admin__', 'SABnzbd_nzf', 'SABnzbd_nzo']
-        for admin_file in admin_files:
-            try:
-                if (dir_path / admin_file).exists():
+        # Check for SABnzbd admin files (HIGHEST confidence) using set-based checking
+        try:
+            existing_files = {f.name for f in dir_path.iterdir() if f.is_file()}
+            admin_matches = self.admin_files & existing_files
+            if admin_matches:
+                for admin_file in admin_matches:
                     indicators.append(f"SABnzbd file: {admin_file}")
                     score += 15
-            except PermissionError:
-                pass  # Skip if we can't check
+        except (PermissionError, OSError):
+            # Fall back to individual checks if directory listing fails
+            for admin_file in self.admin_files:
+                try:
+                    if (dir_path / admin_file).exists():
+                        indicators.append(f"SABnzbd file: {admin_file}")
+                        score += 15
+                except PermissionError:
+                    pass  # Skip if we can't check
         
         # Check for NZB files (HIGH confidence)
         try:
@@ -173,19 +198,18 @@ class SABnzbdDetector:
             pass
                 
         # Check directory name patterns
-        # Pattern 1: ends with .1, .2, etc (retry pattern)
-        if dirname[-2:] in ['.1', '.2', '.3', '.4', '.5']:
+        # Pattern 1: ends with .1, .2, etc (retry pattern) using set lookup
+        if dirname[-2:] in self.retry_suffixes:
             indicators.append("Retry suffix (.N)")
             score += 5
             
-        # Pattern 2: Contains par2/yEnc/nzb in name
-        if any(x in dirname for x in ['par2', 'yEnc', 'nzb']):
+        # Pattern 2: Contains par2/yEnc/nzb in name using set-based checking
+        if any(pattern in dirname for pattern in self.usenet_name_patterns):
             indicators.append("Usenet naming pattern")
             score += 6
             
         # Pattern 3: TV show with retry suffix
-        import re
-        if re.search(r'S\d+E\d+.*\.\d+$', dirname):
+        if self.tv_show_pattern.search(dirname):
             indicators.append("TV show retry pattern")
             score += 5
             
@@ -427,9 +451,8 @@ def parse_size_threshold(size_str: str) -> int:
         
     size_str = size_str.upper().strip()
     
-    # Extract number and unit
-    import re
-    match = re.match(r'^(\d+(?:\.\d+)?)([BKMGT]?)$', size_str)
+    # Extract number and unit using precompiled pattern
+    match = SIZE_PATTERN.match(size_str)
     if not match:
         raise ValueError(f"Invalid size format: {size_str}. Use format like '50G', '2T', '500M'")
         
