@@ -77,6 +77,19 @@ repos:
             tests/.*
           )
 
+  # Security scanning with Bandit
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.6
+    hooks:
+      - id: bandit
+        args:
+          [
+            "-r",
+            ".",
+            "--exclude",
+            "tests/fixtures,tests/test_data,venv,.venv,__pycache__,results"
+          ]
+
 # Configuration
 default_language_version:
   python: python3
