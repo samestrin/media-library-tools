@@ -19,7 +19,7 @@ class TestBannerSystem(unittest.TestCase):
     
     def setUp(self):
         """Set up test environment."""
-        self.script_dir = Path(__file__).parent.parent
+        self.script_dir = Path(__file__).parent.parent.parent
         self.scripts = [
             'plex/plex_update_tv_years',
             'plex/plex_correct_dirs',
@@ -247,7 +247,7 @@ class TestBannerFunctionality(unittest.TestCase):
     
     def setUp(self):
         """Set up test environment."""
-        self.script_dir = Path(__file__).parent.parent
+        self.script_dir = Path(__file__).parent.parent.parent
         os.chdir(self.script_dir)
     
     def test_banner_display_format(self):
