@@ -13,8 +13,8 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock, mock_open
 
 # Add the parent directory to path for test helpers
-sys.path.insert(0, str(Path(__file__).parent))
-sys.path.insert(0, str(Path(__file__).parent / 'utils'))
+sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent / 'utils'))
 
 try:
     from utils.test_helpers import MediaLibraryTestCase, TEST_HELPERS_AVAILABLE
