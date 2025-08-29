@@ -80,6 +80,34 @@ def is_non_interactive() -> bool:
     return False
 
 
+def display_banner(script_name: str, version: str, description: str, 
+                  no_banner_flag: bool = False, quiet_mode: bool = False) -> None:
+    """
+    Display standardized banner for media library tools.
+    
+    Args:
+        script_name: Name of the script (e.g., "plex_update_tv_years")
+        version: Version string (e.g., "1.0")
+        description: Brief description of script functionality
+        no_banner_flag: True if --no-banner CLI flag was provided
+        quiet_mode: True if QUIET_MODE global config is enabled
+    """
+    # Check suppression conditions (highest to lowest priority)
+    if no_banner_flag or quiet_mode or is_non_interactive():
+        return
+    
+    try:
+        # Display standardized ASCII art
+        print("┏┳┓┏━╸╺┳┓╻┏━┓╻  ╻┏┓ ┏━┓┏━┓┏━┓╻ ╻╺┳╸┏━┓┏━┓╻  ┏━┓")
+        print("┃┃┃┣╸  ┃┃┃┣━┫┃  ┃┣┻┓┣┳┛┣━┫┣┳┛┗┳┛ ┃ ┃ ┃┃ ┃┃  ┗━┓")
+        print("╹ ╹┗━╸╺┻┛╹╹ ╹┗━╸╹┗━┛╹┗╸╹ ╹╹┗╸ ╹  ╹ ┗━┛┗━┛┗━╸┗━┛")
+        print(f"{script_name} v{version}: {description}")
+        print()  # Blank line for separation
+    except Exception:
+        # Banner display errors should not prevent script execution
+        pass
+
+
 def read_global_config_bool(var_name: str, default: bool = False) -> bool:
     """Read a boolean environment variable with support for .env files.
     
@@ -1026,6 +1054,8 @@ and rename directories to "Show Title (YEAR)" format. Results are cached for
                         help='Show verbose output')
     parser.add_argument('--debug', action='store_true',
                         help='Show detailed debug output')
+    parser.add_argument('--no-banner', action='store_true',
+                        help='Suppress banner display')
     
     # Cache management options
     parser.add_argument('--cache-stats', action='store_true',
@@ -1044,6 +1074,7 @@ and rename directories to "Show Title (YEAR)" format. Results are cached for
     # Read global configuration
     auto_execute = read_global_config_bool('AUTO_EXECUTE', False)
     auto_confirm = read_global_config_bool('AUTO_CONFIRM', False)
+    quiet_mode = read_global_config_bool('QUIET_MODE', False)
     
     # Apply global configuration (CLI arguments take precedence)
     if auto_execute and not args.execute:
@@ -1074,8 +1105,9 @@ and rename directories to "Show Title (YEAR)" format. Results are cached for
         cache = TVDBCache(args.cache_dir)
         
         if args.cache_clear:
-            print(f"Plex TV Show Year Updater v{VERSION}")
-            print("=" * 50)
+            display_banner("plex_update_tv_years", VERSION, 
+                          "add/correct tv show years in directories using TVDB API",
+                          args.no_banner, quiet_mode)
             print("Clearing cache...")
             
             if not args.yes and not is_non_interactive():
@@ -1096,8 +1128,9 @@ and rename directories to "Show Title (YEAR)" format. Results are cached for
             sys.exit(0)
         
         if args.cache_stats:
-            print(f"Plex TV Show Year Updater v{VERSION}")
-            print("=" * 50)
+            display_banner("plex_update_tv_years", VERSION, 
+                          "add/correct tv show years in directories using TVDB API",
+                          args.no_banner, quiet_mode)
             updater = TVShowYearUpdater(
                 tvdb_key=tvdb_key,
                 dry_run=True,
@@ -1110,9 +1143,10 @@ and rename directories to "Show Title (YEAR)" format. Results are cached for
             updater.display_cache_statistics()
             sys.exit(0)
     
-    # Display header
-    print(f"Plex TV Show Year Updater v{VERSION}")
-    print("=" * 50)
+    # Display banner
+    display_banner("plex_update_tv_years", VERSION, 
+                  "add/correct tv show years in directories using TVDB API",
+                  args.no_banner, quiet_mode)
     
     if dry_run_mode:
         print("DRY-RUN MODE: No changes will be made")

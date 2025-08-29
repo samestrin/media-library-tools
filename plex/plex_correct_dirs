@@ -29,6 +29,58 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 
+def is_non_interactive() -> bool:
+    """
+    Detect if we're running in a non-interactive environment (e.g., cron job).
+    
+    Returns:
+        bool: True if running non-interactively, False otherwise
+    """
+    # Check if stdin is not a TTY (common in cron jobs)
+    if not sys.stdin.isatty():
+        return True
+    
+    # Check common environment variables that indicate automation
+    automation_vars = ['CRON', 'CI', 'AUTOMATED', 'NON_INTERACTIVE']
+    for var in automation_vars:
+        if os.environ.get(var):
+            return True
+    
+    # Check if TERM is not set (common in cron)
+    if not os.environ.get('TERM'):
+        return True
+    
+    return False
+
+
+def display_banner(script_name: str, version: str, description: str, 
+                  no_banner_flag: bool = False, quiet_mode: bool = False) -> None:
+    """
+    Display standardized banner for media library tools.
+    
+    Args:
+        script_name: Name of the script (e.g., "plex_correct_dirs")
+        version: Version string (e.g., "2.1.0")
+        description: Brief description of script functionality
+        no_banner_flag: True if --no-banner CLI flag was provided
+        quiet_mode: True if QUIET_MODE global config is enabled
+    """
+    # Check suppression conditions (highest to lowest priority)
+    if no_banner_flag or quiet_mode or is_non_interactive():
+        return
+    
+    try:
+        # Display standardized ASCII art
+        print("┏┳┓┏━╸╺┳┓╻┏━┓╻  ╻┏┓ ┏━┓┏━┓┏━┓╻ ╻╺┳╸┏━┓┏━┓╻  ┏━┓")
+        print("┃┃┃┣╸  ┃┃┃┣━┫┃  ┃┣┻┓┣┳┛┣━┫┣┳┛┗┳┛ ┃ ┃ ┃┃ ┃┃  ┗━┓")
+        print("╹ ╹┗━╸╺┻┛╹╹ ╹┗━╸╹┗━┛╹┗╸╹ ╹╹┗╸ ╹  ╹ ┗━┛┗━┛┗━╸┗━┛")
+        print(f"{script_name} v{version}: {description}")
+        print()  # Blank line for separation
+    except Exception:
+        # Banner display errors should not prevent script execution
+        pass
+
+
 def read_global_config_bool(var_name: str, default: bool = False) -> bool:
     """Read a boolean environment variable with support for .env files.
     
@@ -414,6 +466,11 @@ Cron Usage:
         help='Force execution even if another instance is running'
     )
     parser.add_argument(
+        '--no-banner',
+        action='store_true',
+        help='Suppress banner display'
+    )
+    parser.add_argument(
         '--max-items',
         type=int,
         default=5,
@@ -434,6 +491,7 @@ Cron Usage:
     # Read global configuration
     auto_execute = read_global_config_bool('AUTO_EXECUTE', False)
     auto_confirm = read_global_config_bool('AUTO_CONFIRM', False)
+    quiet_mode = read_global_config_bool('QUIET_MODE', False)
     
     # Apply global configuration (CLI arguments take precedence)
     if auto_execute and not args.execute:
@@ -451,9 +509,10 @@ Cron Usage:
     if args.yes and dry_run_mode:
         print("Warning: -y/--yes flag has no effect in dry-run mode", file=sys.stderr)
     
-    # Display header with mode indicator
-    print(f"Plex Directory Corrector v2.1.0")
-    print("=" * 50)
+    # Display banner
+    display_banner("plex_correct_dirs", "2.1.0", 
+                  "correct Plex directory names to match Plex conventions",
+                  args.no_banner, quiet_mode)
     
     if dry_run_mode:
         print("DRY-RUN MODE: No changes will be made")

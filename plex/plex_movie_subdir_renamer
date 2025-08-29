@@ -28,6 +28,30 @@ import tempfile
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+# Version constant
+VERSION = "2.1.0"
+
+
+def display_banner(script_name: str, version: str, description: str, 
+                  no_banner_flag: bool = False, quiet_mode: bool = False) -> None:
+    """
+    Display standardized banner for media library tools.
+    """
+    # Check suppression conditions (highest to lowest priority)
+    if no_banner_flag or quiet_mode or is_non_interactive():
+        return
+    
+    try:
+        # Display standardized ASCII art
+        print("┏┳┓┏━╸╺┳┓╻┏━┓╻  ╻┏┓ ┏━┓┏━┓┏━┓╻ ╻╺┳╸┏━┓┏━┓╻  ┏━┓")
+        print("┃┃┃┣╸  ┃┃┃┣━┫┃  ┃┣┻┓┣┳┛┣━┫┣┳┛┗┳┛ ┃ ┃ ┃┃ ┃┃  ┗━┓")
+        print("╹ ╹┗━╸╺┻┛╹╹ ╹┗━╸╹┗━┛╹┗╸╹ ╹╹┗╸ ╹  ╹ ┗━┛┗━┛┗━╸┗━┛")
+        print(f"{script_name} v{version}: {description}")
+        print()  # Blank line for separation
+    except Exception:
+        # Banner display errors should not prevent script execution
+        pass
+
 
 def read_global_config_bool(var_name: str, default: bool = False) -> bool:
     """Read a boolean environment variable with support for .env files.
@@ -381,6 +405,10 @@ def validate_args(args):
     # Read global configuration
     auto_execute = read_global_config_bool('AUTO_EXECUTE', False)
     auto_confirm = read_global_config_bool('AUTO_CONFIRM', False)
+    quiet_mode = read_global_config_bool('QUIET_MODE', False)
+    
+    # Set quiet_mode as attribute for access elsewhere
+    args.quiet_mode = quiet_mode
     
     # Apply global configuration (CLI arguments take precedence)
     if auto_execute and not args.execute:
@@ -502,9 +530,14 @@ Cron Usage:
         help="Enable debug output (implies --verbose)"
     )
     parser.add_argument(
+        "--no-banner",
+        action="store_true",
+        help="Suppress banner display"
+    )
+    parser.add_argument(
         "--version", 
         action="version", 
-        version="%(prog)s 2.1.0"
+        version=f"%(prog)s {VERSION}"
     )
     
     args = parser.parse_args()
@@ -516,9 +549,10 @@ Cron Usage:
     # Validate arguments and get dry_run_mode
     dry_run_mode = validate_args(args)
     
-    # Display header with mode indicator
-    print(f"Plex Movie Subdirectory Renamer v2.1.0")
-    print("=" * 50)
+    # Display banner
+    display_banner("plex_movie_subdir_renamer", VERSION, 
+                  "rename movie featurettes and extras according to Plex naming conventions",
+                  args.no_banner, getattr(args, 'quiet_mode', False))
     
     if dry_run_mode:
         print("DRY-RUN MODE: No changes will be made")

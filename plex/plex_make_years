@@ -31,6 +31,27 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Union
 
 
+def display_banner(script_name: str, version: str, description: str, 
+                  no_banner_flag: bool = False, quiet_mode: bool = False) -> None:
+    """
+    Display standardized banner for media library tools.
+    """
+    # Check suppression conditions (highest to lowest priority)
+    if no_banner_flag or quiet_mode or is_non_interactive():
+        return
+    
+    try:
+        # Display standardized ASCII art
+        print("┏┳┓┏━╸╺┳┓╻┏━┓╻  ╻┏┓ ┏━┓┏━┓┏━┓╻ ╻╺┳╸┏━┓┏━┓╻  ┏━┓")
+        print("┃┃┃┣╸  ┃┃┃┣━┫┃  ┃┣┻┓┣┳┛┣━┫┣┳┛┗┳┛ ┃ ┃ ┃┃ ┃┃  ┗━┓")
+        print("╹ ╹┗━╸╺┻┛╹╹ ╹┗━╸╹┗━┛╹┗╸╹ ╹╹┗╸ ╹  ╹ ┗━┛┗━┛┗━╸┗━┛")
+        print(f"{script_name} v{version}: {description}")
+        print()  # Blank line for separation
+    except Exception:
+        # Banner display errors should not prevent script execution
+        pass
+
+
 def read_global_config_bool(var_name: str, default: bool = False) -> bool:
     """Read a boolean environment variable with support for .env files.
     
@@ -579,6 +600,11 @@ Cron Usage:
         help='List all supported year detection patterns and exit'
     )
     parser.add_argument(
+        '--no-banner',
+        action='store_true',
+        help='Suppress banner display'
+    )
+    parser.add_argument(
         '--version',
         action='version',
         version='%(prog)s 2.1.0'
@@ -614,6 +640,7 @@ Cron Usage:
     # Read global configuration
     auto_execute = read_global_config_bool('AUTO_EXECUTE', False)
     auto_confirm = read_global_config_bool('AUTO_CONFIRM', False)
+    quiet_mode = read_global_config_bool('QUIET_MODE', False)
     
     # Apply global configuration (CLI arguments take precedence)
     if auto_execute and not args.execute:
@@ -636,9 +663,10 @@ Cron Usage:
         print("Error: Start year must be less than end year.")
         sys.exit(1)
     
-    # Show mode indicators
-    print(f"Plex Year Organizer v2.1.0")
-    print("=" * 50)
+    # Display banner
+    display_banner("plex_make_years", "2.1.0", 
+                  "create year-based directory structures for movies",
+                  args.no_banner, quiet_mode)
     
     if dry_run_mode:
         print("DRY-RUN MODE: No changes will be made")
