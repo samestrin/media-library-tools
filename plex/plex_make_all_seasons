@@ -395,13 +395,14 @@ class PlexSeasonBatchOrganizer:
     """Main class for batch season organization."""
     
     def __init__(self, dry_run: bool = False, force: bool = False, 
-                 max_workers: int = 4, recursive: bool = False):
+                 max_workers: int = 4, recursive: bool = False, depth: int = 1):
         self.dry_run = dry_run
         self.force = force
         self.max_workers = max_workers
         self.recursive = recursive
+        self.depth = depth
         self.lock_file = None
-        self.organizer = SeasonOrganizer(dry_run=dry_run)
+        self.organizer = SeasonOrganizer(dry_run=dry_run, depth=depth)
     
     def acquire_lock(self) -> bool:
         """Acquire file lock to prevent multiple instances."""
@@ -649,6 +650,8 @@ Examples:
   %(prog)s /path/to/tv/shows --execute -y       # Execute without confirmation
   %(prog)s /path/to/tv/shows --parallel 8       # Use 8 worker threads
   %(prog)s /path/to/tv/shows --recursive        # Process all subdirectories
+  %(prog)s /path/to/tv/shows --depth 2 --execute # Search for files up to 2 levels deep
+  %(prog)s /path/to/tv/shows --depth 3 --execute # Search for files up to 3 levels deep
   %(prog)s /path/to/tv/shows --verbose          # Show verbose output
   %(prog)s /path/to/tv/shows --debug            # Show debug output
   %(prog)s /path/to/tv/shows --force            # Force run (bypass lock)
@@ -715,6 +718,12 @@ Cron Usage:
         help='Suppress banner display'
     )
     parser.add_argument(
+        '--depth',
+        type=int,
+        default=1,
+        help='Depth level for searching video files (default: 1). Use 2 or higher to search in subdirectories.'
+    )
+    parser.add_argument(
         '--version',
         action='version',
         version='%(prog)s 2.1.0'
@@ -772,7 +781,8 @@ Cron Usage:
         dry_run=dry_run_mode,
         force=args.force,
         max_workers=args.parallel,
-        recursive=args.recursive
+        recursive=args.recursive,
+        depth=args.depth
     )
     
     try:
