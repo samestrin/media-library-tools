@@ -85,9 +85,9 @@ repos:
         args:
           [
             "-r",
-            ".",
-            "--exclude",
-            "tests/fixtures,tests/test_data,venv,.venv,__pycache__,results"
+            "SABnzbd",
+            "plex",
+            "plex-api"
           ]
 
 # Configuration
