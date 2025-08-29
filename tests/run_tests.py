@@ -11,6 +11,7 @@ import argparse
 import unittest
 import time
 import subprocess
+import shutil
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 from io import StringIO
@@ -157,8 +158,17 @@ class TestRunner:
             start_time = time.time()
             
             # Prepare test execution command
-            cmd = [sys.executable, '-m', 'unittest', 'discover', '-s', 
-                   str(Path(test_file).parent), '-p', Path(test_file).name]
+            if getattr(self.args, 'coverage', False):
+                # Run tests under coverage in a subprocess with parallel data
+                cmd = [
+                    sys.executable, '-m', 'coverage', 'run', '-p', '-m', 'unittest',
+                    'discover', '-s', str(Path(test_file).parent), '-p', Path(test_file).name
+                ]
+            else:
+                cmd = [
+                    sys.executable, '-m', 'unittest', 'discover', '-s',
+                    str(Path(test_file).parent), '-p', Path(test_file).name
+                ]
             
             if self.args.verbose:
                 cmd.append('-v')
@@ -394,6 +404,14 @@ class TestRunner:
             print("\n🎉 ALL TESTS PASSED!")
         else:
             print(f"\n💥 {total_failed + total_errors} TESTS FAILED")
+
+        # If coverage enabled, show where reports are located
+        if getattr(self.args, 'coverage', False):
+            cov_dir = Path('results') / 'coverage_html'
+            cov_xml = Path('results') / 'coverage.xml'
+            print("\n📚 Coverage reports:")
+            print(f"  HTML: {cov_dir}/index.html")
+            print(f"  XML:  {cov_xml}")
     
     def save_report(self) -> None:
         """
@@ -485,6 +503,18 @@ Examples:
     parser.add_argument('--quiet', '-q', action='store_true',
                        help='Minimize output (only show summary)')
     
+    # Coverage options
+    parser.add_argument('--coverage', action='store_true',
+                       help='Collect test coverage using coverage.py')
+    parser.add_argument('--cov-html', action='store_true',
+                       help='Generate HTML coverage report (default when --coverage)')
+    parser.add_argument('--cov-xml', action='store_true',
+                       help='Generate XML coverage report (default when --coverage)')
+    parser.add_argument('--cov-term', action='store_true',
+                       help='Show terminal coverage summary (default when --coverage)')
+    parser.add_argument('--cov-erase', action='store_true',
+                       help='Erase previous coverage data before running tests')
+    
     # Environment options
     parser.add_argument('--setup-only', action='store_true',
                        help='Only set up test environment, don\'t run tests')
@@ -559,12 +589,42 @@ Examples:
     runner = TestRunner(args)
     
     try:
+        # Prepare coverage environment if requested
+        if args.coverage:
+            # Ensure coverage is available
+            try:
+                import coverage  # type: ignore
+            except Exception:
+                print("\n❌ coverage.py is not installed. Install dev deps to use --coverage.")
+                sys.exit(1)
+
+            # Erase previous data if requested
+            if args.cov_erase:
+                subprocess.run([sys.executable, '-m', 'coverage', 'erase'], check=False)
+
         runner.run_all_tests()
         
         if not args.quiet:
             runner.generate_summary()
         
         runner.save_report()
+
+        # Combine and generate coverage reports if requested
+        if args.coverage:
+            results_dir = Path('results')
+            cov_html_dir = results_dir / 'coverage_html'
+            cov_xml_file = results_dir / 'coverage.xml'
+            results_dir.mkdir(parents=True, exist_ok=True)
+            cov_html_dir.mkdir(parents=True, exist_ok=True)
+
+            # Combine parallel data and generate reports
+            subprocess.run([sys.executable, '-m', 'coverage', 'combine'], check=False)
+            if args.cov_term or (not args.cov_html and not args.cov_xml):
+                subprocess.run([sys.executable, '-m', 'coverage', 'report', '--skip-empty'], check=False)
+            if args.cov_html or args.coverage:
+                subprocess.run([sys.executable, '-m', 'coverage', 'html', '-d', str(cov_html_dir)], check=False)
+            if args.cov_xml or args.coverage:
+                subprocess.run([sys.executable, '-m', 'coverage', 'xml', '-o', str(cov_xml_file)], check=False)
         
         # Cleanup if requested
         if not args.no_cleanup and TEST_CONFIG.get('cleanup_on_success', True):
