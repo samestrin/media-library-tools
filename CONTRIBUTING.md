@@ -35,7 +35,21 @@ Thank you for your interest in contributing to Media Library Tools! This documen
    pip install -e ".[dev]"
    ```
    
-   This installs the project in editable mode with development dependencies (black, ruff, pre-commit).
+This installs the project in editable mode with development dependencies (black, ruff, pre-commit, bandit, coverage).
+
+### Security Scanning (Bandit)
+- Bandit runs via pre-commit to scan first-party packages: `SABnzbd/`, `plex/`, and `plex-api/`.
+- Run manually:
+  ```bash
+  bandit -r SABnzbd plex plex-api
+  ```
+
+### Test Coverage
+- The custom test runner supports coverage reporting:
+  ```bash
+  python tests/run_tests.py --coverage --cov-term
+  ```
+- Reports are saved to `results/coverage_html/` (HTML) and `results/coverage.xml` (XML).
 
 3. **Set Up Environment**
    ```bash

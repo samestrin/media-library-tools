@@ -103,8 +103,24 @@ python -m pytest tests/unit/test_sabnzbd_cleanup.py
 
 ### Test Coverage
 ```bash
-# Run tests with coverage
-python -m pytest tests/ --cov=src --cov-report=html
+# Option A: Built-in runner with coverage (HTML, XML, terminal)
+python tests/run_tests.py --coverage --cov-term
+
+# Generate only HTML report
+python tests/run_tests.py --coverage --cov-html
+
+# Generate only XML report
+python tests/run_tests.py --coverage --cov-xml
+
+# Quick subset with coverage
+python tests/run_tests.py --categories unit --fast --coverage
+
+# Reports are written to results/coverage_html (HTML) and results/coverage.xml (XML)
+```
+
+```bash
+# Option B: Pytest (if used locally)
+python -m pytest tests/ --cov=. --cov-report=html
 ```
 
 ## Test Development Guidelines
