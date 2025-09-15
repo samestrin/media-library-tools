@@ -224,7 +224,7 @@ def build_all_tools(output_dir: Path, verbose: bool = False) -> Dict[str, bool]:
     results = {}
     
     # Define standard tool directories
-    tool_dirs = ['plex', 'sabnzbd', 'plex-api']
+    tool_dirs = ['plex', 'SABnzbd', 'plex-api']
     
     for tool_dir in tool_dirs:
         tool_path = Path(tool_dir)
