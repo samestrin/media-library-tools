@@ -10,9 +10,12 @@ Features:
 - Marker-based code injection (# {{include utils.py}})
 - Comment insertion for debugging and identification
 - Preserves executable nature of tool scripts
-- Handles multiple tool scripts
-- Error handling for file operations
-- Command-line interface for flexibility
+- Batch processing of all tools at once
+- Enhanced error handling and reporting
+- Command-line arguments for flexibility
+- Performance optimization for multiple builds
+- Detailed logging for build process
+- Summary statistics and reporting
 
 Author: Media Library Tools Project
 Version: 1.0.0
@@ -21,11 +24,13 @@ Version: 1.0.0
 import argparse
 import os
 import sys
+import time
+import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 
-VERSION = "1.0.0"
+VERSION = "2.0.0"
 MARKER = "# {{include utils.py}}"
 UTILS_FILE = "utils.py"
 
@@ -168,6 +173,75 @@ def find_scripts(search_paths: List[str]) -> List[Path]:
     return scripts
 
 
+def setup_logging(verbose: bool = False, log_file: Optional[Path] = None) -> None:
+    """Setup logging configuration for the build process."""
+    log_level = logging.DEBUG if verbose else logging.INFO
+    log_format = '%(asctime)s - %(levelname)s - %(message)s'
+    
+    handlers = [logging.StreamHandler()]
+    if log_file:
+        handlers.append(logging.FileHandler(log_file))
+    
+    logging.basicConfig(
+        level=log_level,
+        format=log_format,
+        handlers=handlers
+    )
+
+
+def generate_build_summary(results: Dict[str, bool], start_time: float) -> None:
+    """Generate and display build summary statistics."""
+    total_time = time.time() - start_time
+    success_count = sum(1 for success in results.values() if success)
+    total_count = len(results)
+    
+    print(f"\n{'='*60}")
+    print(f"BUILD SUMMARY")
+    print(f"{'='*60}")
+    print(f"Total scripts processed: {total_count}")
+    print(f"Successfully built: {success_count}")
+    print(f"Failed: {total_count - success_count}")
+    print(f"Success rate: {(success_count/total_count)*100:.1f}%")
+    print(f"Total build time: {total_time:.2f} seconds")
+    
+    if success_count < total_count:
+        print(f"\nFAILED SCRIPTS:")
+        for script, success in results.items():
+            if not success:
+                print(f"  ❌ {script}")
+    
+    if success_count > 0:
+        print(f"\nSUCCESSFUL SCRIPTS:")
+        for script, success in results.items():
+            if success:
+                print(f"  ✅ {script}")
+    
+    print(f"{'='*60}")
+
+
+def build_all_tools(output_dir: Path, verbose: bool = False) -> Dict[str, bool]:
+    """Build all tools in the project automatically."""
+    results = {}
+    
+    # Define standard tool directories
+    tool_dirs = ['plex', 'sabnzbd', 'plex-api']
+    
+    for tool_dir in tool_dirs:
+        tool_path = Path(tool_dir)
+        if tool_path.exists() and tool_path.is_dir():
+            scripts = find_scripts([str(tool_path)])
+            for script in scripts:
+                script_name = f"{tool_dir}/{script.name}"
+                if verbose:
+                    print(f"Building {script_name}...")
+                results[script_name] = process_script(script, output_dir)
+        else:
+            if verbose:
+                print(f"Directory not found: {tool_dir}")
+    
+    return results
+
+
 def main():
     """Main entry point for the build script."""
     parser = argparse.ArgumentParser(
@@ -175,22 +249,25 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s                          # Build all scripts in current directory
+  %(prog)s                          # Build all scripts in standard directories
+  %(prog)s --all                    # Build all tools in project
   %(prog)s plex/plex_correct_dirs   # Build a specific script
   %(prog)s plex/                    # Build all scripts in plex directory
-  %(prog)s --output-dir dist plex/  # Build to custom output directory
+  %(prog)s --output-dir dist --all  # Build all tools to custom output directory
+  %(prog)s --log-file build.log --verbose --all  # Verbose build with logging
 
 The build script looks for the marker '# {{include utils.py}}' in source scripts
 and replaces it with the content of utils.py surrounded by comment blocks.
 Scripts without the marker are copied as-is.
+
+Standard tool directories: plex/, sabnzbd/, plex-api/
         """
     )
     
     parser.add_argument(
         'paths',
         nargs='*',
-        default=['.'],
-        help='Paths to scripts or directories to build (default: current directory)'
+        help='Paths to scripts or directories to build (default: none when using --all)'
     )
     
     parser.add_argument(
@@ -198,6 +275,18 @@ Scripts without the marker are copied as-is.
         type=Path,
         default=Path('build'),
         help='Output directory for built scripts (default: build/)'
+    )
+    
+    parser.add_argument(
+        '--all',
+        action='store_true',
+        help='Build all tools in standard directories (plex/, sabnzbd/, plex-api/)'
+    )
+    
+    parser.add_argument(
+        '--log-file',
+        type=Path,
+        help='Log file for build process'
     )
     
     parser.add_argument(
@@ -212,33 +301,72 @@ Scripts without the marker are copied as-is.
         help='Show verbose output'
     )
     
+    parser.add_argument(
+        '--clean',
+        action='store_true',
+        help='Clean output directory before building'
+    )
+    
     args = parser.parse_args()
     
-    # Find scripts to build
-    scripts = find_scripts(args.paths)
+    # Setup logging
+    setup_logging(args.verbose, args.log_file)
+    logging.info(f"Starting build process with Media Library Tools Build Script v{VERSION}")
     
-    if not scripts:
-        print("No scripts found to build.")
-        return 1
+    # Clean output directory if requested
+    if args.clean and args.output_dir.exists():
+        import shutil
+        shutil.rmtree(args.output_dir)
+        logging.info(f"Cleaned output directory: {args.output_dir}")
     
-    if args.verbose:
-        print(f"Found {len(scripts)} script(s) to build:")
+    start_time = time.time()
+    
+    # Determine what to build
+    if args.all:
+        # Build all tools automatically
+        if args.paths:
+            logging.warning("--all flag specified, ignoring individual paths")
+        
+        logging.info("Building all tools in standard directories")
+        results = build_all_tools(args.output_dir, args.verbose)
+        
+        if not results:
+            print("No scripts found to build in standard directories.")
+            return 1
+    
+    else:
+        # Build specified paths or default behavior
+        if not args.paths:
+            args.paths = ['.']
+        
+        # Find scripts to build
+        scripts = find_scripts(args.paths)
+        
+        if not scripts:
+            print("No scripts found to build.")
+            return 1
+        
+        if args.verbose:
+            print(f"Found {len(scripts)} script(s) to build:")
+            for script in scripts:
+                print(f"  {script}")
+            print()
+        
+        # Process each script
+        results = {}
         for script in scripts:
-            print(f"  {script}")
-        print()
+            script_name = str(script)
+            if args.verbose:
+                print(f"Building {script_name}...")
+            results[script_name] = process_script(script, args.output_dir)
     
-    # Process each script
-    success_count = 0
-    total_count = len(scripts)
+    # Generate summary
+    generate_build_summary(results, start_time)
     
-    for script in scripts:
-        if process_script(script, args.output_dir):
-            success_count += 1
-        else:
-            print(f"Failed to build: {script}")
+    success_count = sum(1 for success in results.values() if success)
+    total_count = len(results)
     
-    # Summary
-    print(f"\nBuild complete: {success_count}/{total_count} scripts built successfully")
+    logging.info(f"Build completed: {success_count}/{total_count} scripts built successfully")
     
     if success_count < total_count:
         return 1

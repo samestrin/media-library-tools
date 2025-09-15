@@ -21,123 +21,23 @@ Version: 2.1.0
 
 import argparse
 import concurrent.futures
-import fcntl
 import os
 import re
 import shutil
 import sys
-import tempfile
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
-
-def display_banner(script_name: str, version: str, description: str, 
-                  no_banner_flag: bool = False, quiet_mode: bool = False) -> None:
-    """
-    Display standardized banner for media library tools.
-    """
-    # Check suppression conditions (highest to lowest priority)
-    if no_banner_flag or quiet_mode or is_non_interactive():
-        return
-    
-    try:
-        # Display standardized ASCII art
-        print("┏┳┓┏━╸╺┳┓╻┏━┓╻  ╻┏┓ ┏━┓┏━┓┏━┓╻ ╻╺┳╸┏━┓┏━┓╻  ┏━┓")
-        print("┃┃┃┣╸  ┃┃┃┣━┫┃  ┃┣┻┓┣┳┛┣━┫┣┳┛┗┳┛ ┃ ┃ ┃┃ ┃┃  ┗━┓")
-        print("╹ ╹┗━╸╺┻┛╹╹ ╹┗━╸╹┗━┛╹┗╸╹ ╹╹┗╸ ╹  ╹ ┗━┛┗━┛┗━╸┗━┛")
-        print(f"{script_name} v{version}: {description}")
-        print()  # Blank line for separation
-    except Exception:
-        # Banner display errors should not prevent script execution
-        pass
+# {{include utils.py}}
 
 
-def read_global_config_bool(var_name: str, default: bool = False) -> bool:
-    """Read a boolean environment variable with support for .env files.
-    
-    Args:
-        var_name: Name of the environment variable
-        default: Default value if not found
-        
-    Returns:
-        Boolean value of the environment variable
-    """
-    # Check environment variable directly
-    value = os.environ.get(var_name)
-    if value is not None:
-        return value.lower() in ('true', '1', 'yes', 'on')
-    
-    # Check local .env file
-    env_file = '.env'
-    if os.path.exists(env_file):
-        try:
-            with open(env_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line.startswith(f'{var_name}='):
-                        value = line.split('=', 1)[1].strip()
-                        return value.lower() in ('true', '1', 'yes', 'on')
-        except (IOError, OSError):
-            pass
-    
-    # Check global .env file
-    global_env_path = Path.home() / '.media-library-tools' / '.env'
-    if global_env_path.exists():
-        try:
-            with open(global_env_path, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line.startswith(f'{var_name}='):
-                        value = line.split('=', 1)[1].strip()
-                        return value.lower() in ('true', '1', 'yes', 'on')
-        except (IOError, OSError):
-            pass
-    
-    return default
 
 
-def format_size(size_bytes: int) -> str:
-    """Format size in bytes to human readable format.
-    
-    Args:
-        size_bytes: Size in bytes
-        
-    Returns:
-        Human readable size string
-    """
-    for unit in ['B', 'K', 'M', 'G', 'T']:
-        if size_bytes < 1024.0:
-            if unit == 'B':
-                return f"{size_bytes:.0f}{unit}"
-            else:
-                return f"{size_bytes:.1f}{unit}"
-        size_bytes /= 1024.0
-    return f"{size_bytes:.1f}P"
 
 
-def is_non_interactive() -> bool:
-    """Detect if running in non-interactive environment (cron, etc.).
-    
-    Returns:
-        True if non-interactive, False otherwise
-    """
-    # Check if stdin is not a TTY (common in cron jobs)
-    if not sys.stdin.isatty():
-        return True
-        
-    # Check for common non-interactive environment variables
-    non_interactive_vars = ['CRON', 'CI', 'AUTOMATED', 'NON_INTERACTIVE']
-    for var in non_interactive_vars:
-        if os.environ.get(var):
-            return True
-            
-    # Check if TERM is not set or is 'dumb' (common in automated environments)
-    term = os.environ.get('TERM', '')
-    if not term or term == 'dumb':
-        return True
-        
-    return False
+
+
 
 
 class SeasonOrganizer:
@@ -440,48 +340,16 @@ class PlexSeasonBatchOrganizer:
         self.max_workers = max_workers
         self.recursive = recursive
         self.depth = depth
-        self.lock_file = None
+        self.file_lock = FileLock('plex_make_all_seasons')
         self.organizer = SeasonOrganizer(dry_run=dry_run, depth=depth)
     
     def acquire_lock(self) -> bool:
         """Acquire file lock to prevent multiple instances."""
-        if self.force:
-            return True
-            
-        try:
-            self.lock_file = tempfile.NamedTemporaryFile(
-                mode='w',
-                prefix='plex_make_all_seasons_',
-                suffix='.lock',
-                delete=False
-            )
-            fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            self.lock_file.write(str(os.getpid()))
-            self.lock_file.flush()
-            return True
-        except (IOError, OSError) as e:
-            if self.lock_file:
-                self.lock_file.close()
-                try:
-                    os.unlink(self.lock_file.name)
-                except OSError:
-                    pass
-                self.lock_file = None
-            print(f"Error: Another instance is already running. Use --force to override.")
-            print(f"Lock error: {e}")
-            return False
+        return self.file_lock.acquire_lock(self.force)
     
     def release_lock(self) -> None:
         """Release the file lock."""
-        if self.lock_file:
-            try:
-                fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
-                self.lock_file.close()
-                os.unlink(self.lock_file.name)
-            except (IOError, OSError):
-                pass
-            finally:
-                self.lock_file = None
+        self.file_lock.release_lock()
     
     def find_show_directories(self, base_dir: Path) -> List[Path]:
         """Find all show directories to process."""

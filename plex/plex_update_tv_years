@@ -47,109 +47,20 @@ import urllib.request
 import urllib.parse
 import urllib.error
 import re
-import fcntl
 import tempfile
 import time
 from pathlib import Path
 from typing import Optional, Dict, Any, List, Tuple
 
+# {{include utils.py}}
+
 VERSION = "1.0"
 
 
-def is_non_interactive() -> bool:
-    """
-    Detect if we're running in a non-interactive environment (e.g., cron job).
-    
-    Returns:
-        bool: True if running non-interactively, False otherwise
-    """
-    # Check if stdin is not a TTY (common in cron jobs)
-    if not sys.stdin.isatty():
-        return True
-    
-    # Check common environment variables that indicate automation
-    automation_vars = ['CRON', 'CI', 'AUTOMATED', 'NON_INTERACTIVE']
-    for var in automation_vars:
-        if os.environ.get(var):
-            return True
-    
-    # Check if TERM is not set (common in cron)
-    if not os.environ.get('TERM'):
-        return True
-    
-    return False
 
 
-def display_banner(script_name: str, version: str, description: str, 
-                  no_banner_flag: bool = False, quiet_mode: bool = False) -> None:
-    """
-    Display standardized banner for media library tools.
-    
-    Args:
-        script_name: Name of the script (e.g., "plex_update_tv_years")
-        version: Version string (e.g., "1.0")
-        description: Brief description of script functionality
-        no_banner_flag: True if --no-banner CLI flag was provided
-        quiet_mode: True if QUIET_MODE global config is enabled
-    """
-    # Check suppression conditions (highest to lowest priority)
-    if no_banner_flag or quiet_mode or is_non_interactive():
-        return
-    
-    try:
-        # Display standardized ASCII art
-        print("┏┳┓┏━╸╺┳┓╻┏━┓╻  ╻┏┓ ┏━┓┏━┓┏━┓╻ ╻╺┳╸┏━┓┏━┓╻  ┏━┓")
-        print("┃┃┃┣╸  ┃┃┃┣━┫┃  ┃┣┻┓┣┳┛┣━┫┣┳┛┗┳┛ ┃ ┃ ┃┃ ┃┃  ┗━┓")
-        print("╹ ╹┗━╸╺┻┛╹╹ ╹┗━╸╹┗━┛╹┗╸╹ ╹╹┗╸ ╹  ╹ ┗━┛┗━┛┗━╸┗━┛")
-        print(f"{script_name} v{version}: {description}")
-        print()  # Blank line for separation
-    except Exception:
-        # Banner display errors should not prevent script execution
-        pass
 
 
-def read_global_config_bool(var_name: str, default: bool = False) -> bool:
-    """Read a boolean environment variable with support for .env files.
-    
-    Args:
-        var_name: Name of the environment variable
-        default: Default value if not found
-        
-    Returns:
-        Boolean value of the environment variable
-    """
-    # Check environment variable directly
-    value = os.environ.get(var_name)
-    if value is not None:
-        return value.lower() in ('true', '1', 'yes', 'on')
-    
-    # Check local .env file
-    env_file = '.env'
-    if os.path.exists(env_file):
-        try:
-            with open(env_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line.startswith(f'{var_name}='):
-                        value = line.split('=', 1)[1].strip()
-                        return value.lower() in ('true', '1', 'yes', 'on')
-        except (IOError, OSError):
-            pass
-    
-    # Check global .env file
-    global_env_path = Path.home() / '.media-library-tools' / '.env'
-    if global_env_path.exists():
-        try:
-            with open(global_env_path, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line.startswith(f'{var_name}='):
-                        value = line.split('=', 1)[1].strip()
-                        return value.lower() in ('true', '1', 'yes', 'on')
-        except (IOError, OSError):
-            pass
-    
-    return default
 
 
 def retry_with_backoff(max_retries: int = 3, base_delay: float = 1.0, multiplier: float = 2.0, max_delay: float = 30.0):
@@ -558,7 +469,7 @@ class TVShowYearUpdater:
         self.debug = debug
         self.yes = yes
         self.cache_refresh = cache_refresh
-        self.lock_file = None
+        self.file_lock = FileLock('plex_update_tv_years')
         
         # Initialize cache if not forcing refresh
         self.cache = None if cache_refresh else TVDBCache(cache_dir)
@@ -708,36 +619,11 @@ class TVShowYearUpdater:
         Returns:
             bool: True if lock acquired, False otherwise
         """
-        try:
-            lock_file_path = lock_dir / f"plex_update_tv_years_{os.getpid()}.lock"
-            self.lock_file = open(lock_file_path, 'w')
-            fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            self.lock_file.write(f"{os.getpid()}\n{time.time()}")
-            self.lock_file.flush()
-            self.log_debug(f"Lock acquired: {lock_file_path}")
-            return True
-        except (OSError, IOError) as e:
-            if not self.force:
-                print(f"Error: Another instance is running. Use --force to override. ({e})")
-                return False
-            else:
-                self.log_debug(f"Forced execution despite lock error: {e}")
-                return True
+        return self.file_lock.acquire_lock(self.force)
     
     def release_lock(self) -> None:
         """Release the file lock."""
-        if self.lock_file:
-            try:
-                fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
-                self.lock_file.close()
-                # Clean up lock file
-                if hasattr(self.lock_file, 'name'):
-                    os.unlink(self.lock_file.name)
-                self.log_debug("Lock released")
-            except (OSError, IOError) as e:
-                self.log_debug(f"Error releasing lock: {e}")
-            finally:
-                self.lock_file = None
+        self.file_lock.release_lock()
     
     def needs_year_update(self, directory_name: str, tvdb_year: int) -> Tuple[bool, Optional[int]]:
         """

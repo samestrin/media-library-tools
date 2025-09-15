@@ -20,105 +20,22 @@ Version: 2.1.0
 """
 
 import argparse
-import fcntl
 import os
 import re
 import sys
-import tempfile
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+# {{include utils.py}}
 
 # Version constant
 VERSION = "2.1.0"
 
 
-def display_banner(script_name: str, version: str, description: str, 
-                  no_banner_flag: bool = False, quiet_mode: bool = False) -> None:
-    """
-    Display standardized banner for media library tools.
-    """
-    # Check suppression conditions (highest to lowest priority)
-    if no_banner_flag or quiet_mode or is_non_interactive():
-        return
-    
-    try:
-        # Display standardized ASCII art
-        print("┏┳┓┏━╸╺┳┓╻┏━┓╻  ╻┏┓ ┏━┓┏━┓┏━┓╻ ╻╺┳╸┏━┓┏━┓╻  ┏━┓")
-        print("┃┃┃┣╸  ┃┃┃┣━┫┃  ┃┣┻┓┣┳┛┣━┫┣┳┛┗┳┛ ┃ ┃ ┃┃ ┃┃  ┗━┓")
-        print("╹ ╹┗━╸╺┻┛╹╹ ╹┗━╸╹┗━┛╹┗╸╹ ╹╹┗╸ ╹  ╹ ┗━┛┗━┛┗━╸┗━┛")
-        print(f"{script_name} v{version}: {description}")
-        print()  # Blank line for separation
-    except Exception:
-        # Banner display errors should not prevent script execution
-        pass
 
 
-def read_global_config_bool(var_name: str, default: bool = False) -> bool:
-    """Read a boolean environment variable with support for .env files.
-    
-    Args:
-        var_name: Name of the environment variable
-        default: Default value if not found
-        
-    Returns:
-        Boolean value of the environment variable
-    """
-    # Check environment variable directly
-    value = os.environ.get(var_name)
-    if value is not None:
-        return value.lower() in ('true', '1', 'yes', 'on')
-    
-    # Check local .env file
-    env_file = '.env'
-    if os.path.exists(env_file):
-        try:
-            with open(env_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line.startswith(f'{var_name}='):
-                        value = line.split('=', 1)[1].strip()
-                        return value.lower() in ('true', '1', 'yes', 'on')
-        except (IOError, OSError):
-            pass
-    
-    # Check global .env file
-    global_env_path = Path.home() / '.media-library-tools' / '.env'
-    if global_env_path.exists():
-        try:
-            with open(global_env_path, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line.startswith(f'{var_name}='):
-                        value = line.split('=', 1)[1].strip()
-                        return value.lower() in ('true', '1', 'yes', 'on')
-        except (IOError, OSError):
-            pass
-    
-    return default
 
 
-def is_non_interactive() -> bool:
-    """
-    Detect if we're running in a non-interactive environment (e.g., cron job).
-    
-    Returns:
-        bool: True if running non-interactively, False otherwise
-    """
-    # Check if stdin is not a TTY (common in cron jobs)
-    if not sys.stdin.isatty():
-        return True
-    
-    # Check common environment variables that indicate automation
-    automation_vars = ['CRON', 'CI', 'AUTOMATED', 'NON_INTERACTIVE']
-    for var in automation_vars:
-        if os.environ.get(var):
-            return True
-    
-    # Check if TERM is not set (common in cron)
-    if not os.environ.get('TERM'):
-        return True
-    
-    return False
 
 
 def get_plex_naming_convention():
@@ -234,7 +151,7 @@ class PlexMovieSubdirRenamer:
         self.dry_run = dry_run
         self.force = force
         self.verbose = verbose
-        self.lock_file = None
+        self.file_lock = FileLock('plex_movie_subdir_renamer')
         
         # Video file extensions
         self.video_extensions = {
@@ -263,44 +180,11 @@ class PlexMovieSubdirRenamer:
     
     def acquire_lock(self) -> bool:
         """Acquire file lock to prevent multiple instances."""
-        if self.force:
-            return True
-            
-        try:
-            self.lock_file = tempfile.NamedTemporaryFile(
-                mode='w',
-                prefix='plex_movie_subdir_renamer_',
-                suffix='.lock',
-                delete=False
-            )
-            fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            self.lock_file.write(str(os.getpid()))
-            self.lock_file.flush()
-            return True
-        except (IOError, OSError) as e:
-            if self.lock_file:
-                self.lock_file.close()
-                try:
-                    os.unlink(self.lock_file.name)
-                except OSError:
-                    pass
-                self.lock_file = None
-            print(f"Error: Another instance is already running. Use --force to override.")
-            if self.verbose:
-                print(f"Lock error: {e}")
-            return False
+        return self.file_lock.acquire_lock(self.force)
     
     def release_lock(self) -> None:
         """Release the file lock."""
-        if self.lock_file:
-            try:
-                fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
-                self.lock_file.close()
-                os.unlink(self.lock_file.name)
-            except (IOError, OSError):
-                pass
-            finally:
-                self.lock_file = None
+        self.file_lock.release_lock()
     
     def rename_featurettes(self, directory_path: str, movie_name: Optional[str] = None) -> bool:
         """Rename all files in the featurettes directory."""
@@ -379,25 +263,6 @@ class PlexMovieSubdirRenamer:
         
         return True
 
-def confirm_action(message: str, skip_confirmation: bool = False) -> bool:
-    """Ask for user confirmation unless skipped.
-    
-    Args:
-        message: Confirmation message to display
-        skip_confirmation: If True, automatically confirm
-        
-    Returns:
-        True if confirmed, False otherwise
-    """
-    if skip_confirmation:
-        return True
-        
-    try:
-        response = input(f"{message} (y/N): ").strip().lower()
-        return response in ['y', 'yes']
-    except (EOFError, KeyboardInterrupt):
-        print("\nOperation cancelled.")
-        return False
 
 
 def validate_args(args):

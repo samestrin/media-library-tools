@@ -9,12 +9,12 @@ import os
 import sys
 import argparse
 import subprocess
-import fcntl
-import tempfile
 import re
 from pathlib import Path
 from typing import List, Tuple, Dict, Optional
 import shutil
+
+# {{include utils.py}}
 
 VERSION = "2.2"
 
@@ -22,31 +22,12 @@ VERSION = "2.2"
 SIZE_PATTERN = re.compile(r'^(\d+(?:\.\d+)?)([BKMGT]?)$')
 
 
-def display_banner(script_name: str, version: str, description: str, 
-                  no_banner_flag: bool = False, quiet_mode: bool = False) -> None:
-    """
-    Display standardized banner for media library tools.
-    """
-    # Check suppression conditions (highest to lowest priority)
-    if no_banner_flag or quiet_mode or is_non_interactive():
-        return
-    
-    try:
-        # Display standardized ASCII art
-        print("┏┳┓┏━╸╺┳┓╻┏━┓╻  ╻┏┓ ┏━┓┏━┓┏━┓╻ ╻╺┳╸┏━┓┏━┓╻  ┏━┓")
-        print("┃┃┃┣╸  ┃┃┃┣━┫┃  ┃┣┻┓┣┳┛┣━┫┣┳┛┗┳┛ ┃ ┃ ┃┃ ┃┃  ┗━┓")
-        print("╹ ╹┗━╸╺┻┛╹╹ ╹┗━╸╹┗━┛╹┗╸╹ ╹╹┗╸ ╹  ╹ ┗━┛┗━┛┗━╸┗━┛")
-        print(f"{script_name} v{version}: {description}")
-        print()  # Blank line for separation
-    except Exception:
-        # Banner display errors should not prevent script execution
-        pass
 
 class SABnzbdDetector:
     def __init__(self, verbose=False, debug=False):
         self.verbose = verbose
         self.debug = debug
-        self.lock_file = None
+        self.file_lock = FileLock('sabnzbd_cleanup')
         self.stats = {
             'total_dirs': 0,
             'checked_dirs': 0,
@@ -377,71 +358,7 @@ def bytes_to_human(bytes_val: int) -> str:
         bytes_val //= 1024
     return f"{bytes_val}P"
 
-def is_non_interactive() -> bool:
-    """Detect if running in non-interactive environment (cron, etc.).
-    
-    Returns:
-        True if non-interactive, False otherwise
-    """
-    # Check if stdin is not a TTY (common in cron jobs)
-    if not sys.stdin.isatty():
-        return True
-        
-    # Check for common non-interactive environment variables
-    non_interactive_vars = ['CRON', 'CI', 'AUTOMATED', 'NON_INTERACTIVE']
-    for var in non_interactive_vars:
-        if os.environ.get(var):
-            return True
-            
-    # Check if TERM is not set or is 'dumb' (common in automated environments)
-    term = os.environ.get('TERM', '')
-    if not term or term == 'dumb':
-        return True
-        
-    return False
 
-def read_global_config_bool(var_name: str, default: bool = False) -> bool:
-    """Read a boolean environment variable with support for .env files.
-    
-    Args:
-        var_name: Name of the environment variable
-        default: Default value if not found
-        
-    Returns:
-        Boolean value of the environment variable
-    """
-    # Check environment variable directly
-    value = os.environ.get(var_name)
-    if value is not None:
-        return value.lower() in ('true', '1', 'yes', 'on')
-    
-    # Check local .env file
-    env_file = '.env'
-    if os.path.exists(env_file):
-        try:
-            with open(env_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line.startswith(f'{var_name}='):
-                        value = line.split('=', 1)[1].strip()
-                        return value.lower() in ('true', '1', 'yes', 'on')
-        except (IOError, OSError):
-            pass
-    
-    # Check global .env file
-    global_env_path = Path.home() / '.media-library-tools' / '.env'
-    if global_env_path.exists():
-        try:
-            with open(global_env_path, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line.startswith(f'{var_name}='):
-                        value = line.split('=', 1)[1].strip()
-                        return value.lower() in ('true', '1', 'yes', 'on')
-        except (IOError, OSError):
-            pass
-    
-    return default
 
 def acquire_lock() -> Optional[int]:
     """Acquire a file lock to prevent multiple instances.
@@ -463,18 +380,6 @@ def acquire_lock() -> Optional[int]:
     except (OSError, IOError):
         return None
 
-def release_lock(lock_fd: Optional[int]) -> None:
-    """Release the file lock.
-    
-    Args:
-        lock_fd: File descriptor from acquire_lock()
-    """
-    if lock_fd is not None:
-        try:
-            fcntl.flock(lock_fd, fcntl.LOCK_UN)
-            os.close(lock_fd)
-        except (OSError, IOError):
-            pass  # Lock file may have been removed
 
 def parse_size_threshold(size_str: str) -> int:
     """Parse size threshold string (e.g., '50G', '2T') to bytes.
@@ -547,29 +452,27 @@ def validate_args(args: argparse.Namespace) -> Optional[int]:
     
     return size_threshold_bytes
 
-def acquire_lock_or_exit(args: argparse.Namespace) -> Optional[int]:
+def acquire_lock_or_exit(args: argparse.Namespace) -> Optional[FileLock]:
     """Acquire lock or exit if another instance is running.
     
     Args:
         args: Parsed command line arguments
         
     Returns:
-        Lock file descriptor or None if not acquired
+        FileLock instance or None if not acquired
         
     Raises:
         SystemExit: If another instance is already running and force flag is not set
     """
     # Acquire lock to prevent multiple instances
-    if not args.force:
-        lock_fd = acquire_lock()
-        if lock_fd is None:
-            print("Another instance of sabnzbd_cleanup is already running.", file=sys.stderr)
-            print("Use --force to override this check.", file=sys.stderr)
-            sys.exit(1)
-    else:
-        lock_fd = None
+    file_lock = FileLock('sabnzbd_cleanup')
+    if not file_lock.acquire_lock(args.force):
+        sys.exit(1)
     
-    return lock_fd
+    if args.force:
+        print("Forcing execution (--force flag provided)")
+    
+    return file_lock
 
 def print_header(args: argparse.Namespace, search_path: Path) -> None:
     """Print the header information.
@@ -876,7 +779,8 @@ Cron Usage:
     
     finally:
         # Always release the lock
-        release_lock(lock_fd)
+        if lock_fd:
+            lock_fd.release_lock()
 
 if __name__ == '__main__':
     main()

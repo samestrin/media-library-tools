@@ -88,6 +88,35 @@ class TestRunner:
         self.results: List[TestResult] = []
         self.start_time = 0.0
         self.end_time = 0.0
+        
+        # Handle built tools testing
+        if hasattr(args, 'built_tools') and args.built_tools:
+            self.build_dir = Path(args.build_dir)
+            if not self.build_dir.is_absolute():
+                self.build_dir = self.tests_dir / self.build_dir
+            
+            if not self.build_dir.exists():
+                print(f"❌ Build directory not found: {self.build_dir}")
+                print("Run 'python build.py --all' to build tools first")
+                sys.exit(1)
+            
+            self._setup_built_tools_environment()
+    
+    def _setup_built_tools_environment(self):
+        """Setup environment variables to point tests at built tools."""
+        # Add build directory to PATH so tests find built tools
+        current_path = os.environ.get('PATH', '')
+        build_dir_str = str(self.build_dir.absolute())
+        
+        if build_dir_str not in current_path:
+            os.environ['PATH'] = f"{build_dir_str}:{current_path}"
+        
+        # Set environment variable to indicate we're testing built tools
+        os.environ['TESTING_BUILT_TOOLS'] = 'true'
+        os.environ['BUILD_TOOLS_DIR'] = build_dir_str
+        
+        if not self.args.quiet:
+            print(f"🔧 Testing built tools from: {self.build_dir}")
     
     def discover_tests(self, pattern: str = None, subdir: str = None) -> List[str]:
         """
@@ -472,6 +501,12 @@ Examples:
   
   # Quick validation run
   python run_tests.py --categories unit --fast
+  
+  # Test against built tools instead of source
+  python run_tests.py --built-tools
+  
+  # Test built tools with custom build directory
+  python run_tests.py --built-tools --build-dir ../dist
 """
     )
     
@@ -522,6 +557,12 @@ Examples:
                        help='Only validate test environment')
     parser.add_argument('--cleanup-only', action='store_true',
                        help='Only clean up test environment')
+    
+    # Build system options
+    parser.add_argument('--built-tools', action='store_true',
+                       help='Test against built tool files in build/ directory instead of source files')
+    parser.add_argument('--build-dir', default='../build',
+                       help='Directory containing built tools (default: ../build)')
     
     parser.add_argument('--version', action='version', 
                        version=f'%(prog)s v{VERSION}')

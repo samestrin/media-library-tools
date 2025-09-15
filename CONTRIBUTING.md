@@ -105,6 +105,71 @@ LARGE_FILE_THRESHOLD=100
 - **Testing**: Use unittest framework
 - **Documentation**: Maintain inline comments and docstrings
 
+## Build System
+
+The project uses a modernized build system that consolidates shared utility functions while maintaining the principle of standalone, self-contained scripts for distribution.
+
+### Overview
+
+- **Development**: Work with modular source files that import from `utils.py`
+- **Distribution**: Build script generates standalone scripts with injected utilities
+- **Zero Dependencies**: Built tools remain completely self-contained
+
+### Shared Utilities (`utils.py`)
+
+Common functions are consolidated in `utils.py`:
+- `display_banner()` - Standardized banner display
+- `is_non_interactive()` - Non-interactive environment detection
+- `read_global_config_bool()` - Global configuration support
+- `format_size()` - Human-readable size formatting
+- `confirm_action()` - User confirmation prompts
+- `FileLock` class - File locking functionality
+
+### Build Process
+
+1. **Mark Integration Points**: Add `# {{include utils.py}}` marker in source files
+2. **Build Tools**: Use `build.py` to generate standalone scripts
+3. **Distribution**: Built scripts in `build/` directory are self-contained
+
+### Build Commands
+
+```bash
+# Build all tools
+python build.py --all
+
+# Build specific tools
+python build.py plex/plex_correct_dirs
+
+# Build with verbose output
+python build.py --all --verbose
+
+# Build to custom directory
+python build.py --all --output-dir dist
+
+# Clean build directory first
+python build.py --all --clean
+```
+
+### Development Workflow
+
+1. **Development**: Modify source files (not built files)
+2. **Testing**: Test both source and built versions
+3. **Build**: Generate standalone scripts for distribution
+4. **Distribution**: Share built scripts from `build/` directory
+
+### Testing Built Tools
+
+```bash
+# Test against built tools
+python tests/run_tests.py --built-tools
+
+# Test specific categories against built tools
+python tests/run_tests.py --built-tools --categories unit
+
+# Test with custom build directory
+python tests/run_tests.py --built-tools --build-dir ../dist
+```
+
 ## Project Structure
 
 ```
