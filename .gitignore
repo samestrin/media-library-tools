@@ -7,7 +7,7 @@ project_rules.md
 .claude
 .env
 results/
-CODING_STANDARD.md
+CODING_STANDARDS.md
 
 # Python cache files
 __pycache__/
