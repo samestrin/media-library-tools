@@ -356,8 +356,15 @@ class TestRunner:
             )
 
             if not result.is_successful and self.args.verbose:
-                for error in result.error_details[:3]:  # Show first 3 errors
+                # Show all error details immediately for failed tests
+                for error in result.error_details:
                     print(f"   {error}")
+                
+                # Show test output for debugging
+                if result.output and result.output.strip():
+                    print(f"   Test output:")
+                    for line in result.output.strip().split('\n')[-10:]:  # Show last 10 lines
+                        print(f"     {line}")
 
         return category_results
 
@@ -443,9 +450,18 @@ class TestRunner:
                 test_name = Path(result.name).name
                 print(f"  {test_name}: {result.failed} failed, {result.errors} errors")
 
-                if self.args.verbose and result.error_details:
-                    for error in result.error_details[:2]:  # Show first 2 errors
-                        print(f"    - {error}")
+                if self.args.verbose:
+                    # Show all error details in verbose mode
+                    if result.error_details:
+                        for error in result.error_details:
+                            print(f"    - {error}")
+                    
+                    # Show full test output for failed tests
+                    if result.output and result.output.strip():
+                        print(f"    Full output:")
+                        for line in result.output.strip().split('\n'):
+                            print(f"      {line}")
+                        print()
 
         # Performance summary
         if self.args.show_performance:

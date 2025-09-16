@@ -49,21 +49,21 @@ jobs:
 
     - name: Test source tools
       run: |
-        python tests/run_tests.py --categories unit
+        python tests/run_tests.py --categories unit --verbose
 
     - name: Test built tools
       run: |
-        python tests/run_tests.py --built-tools --categories unit
+        python tests/run_tests.py --built-tools --categories unit --verbose
 
     - name: Run integration tests (Linux only)
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
       run: |
-        python tests/run_tests.py --categories integration
+        python tests/run_tests.py --categories integration --verbose
 
     - name: Run integration tests on built tools (Linux only)
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
       run: |
-        python tests/run_tests.py --built-tools --categories integration
+        python tests/run_tests.py --built-tools --categories integration --verbose
 
     - name: Generate coverage report
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
