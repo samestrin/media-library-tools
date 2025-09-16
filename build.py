@@ -50,7 +50,7 @@ import logging
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 VERSION = "2.0.0"
 MARKER = "# {{include utils.py}}"
@@ -331,7 +331,7 @@ def format_syntax_error(error: SyntaxError, script_path: Path) -> str:
     return "\n".join(lines)
 
 
-def categorize_build_error(error: Exception, context: str) -> tuple[str, str]:
+def categorize_build_error(error: Exception, context: str) -> Tuple[str, str]:
     """
     Categorize build errors and provide resolution suggestions.
 
