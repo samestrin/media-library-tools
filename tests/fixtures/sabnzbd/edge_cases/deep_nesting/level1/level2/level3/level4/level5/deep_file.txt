@@ -1,0 +1,5 @@
+Content: File at maximum nesting depth
+Type: Text placeholder
+Depth: 5 levels deep
+Scenario: Deep directory recursion testing
+Purpose: Test recursion limits and performance with deeply nested structures

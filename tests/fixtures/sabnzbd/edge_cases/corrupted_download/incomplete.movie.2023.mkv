@@ -1,0 +1,5 @@
+Content: Incomplete movie download
+Type: Video placeholder (MKV)
+Size: 1.2 GB (incomplete)
+Scenario: Corrupted/incomplete download without proper SABnzbd indicators
+Status: Download interrupted

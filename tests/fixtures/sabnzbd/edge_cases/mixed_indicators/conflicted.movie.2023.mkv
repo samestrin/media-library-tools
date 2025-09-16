@@ -1,0 +1,4 @@
+Content: Movie with conflicting download indicators
+Type: Video placeholder (MKV)
+Scenario: Directory with both SABnzbd and BitTorrent indicators
+Purpose: Test conflict resolution when multiple download types are detected

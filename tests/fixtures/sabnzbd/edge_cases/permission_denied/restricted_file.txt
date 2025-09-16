@@ -1,0 +1,4 @@
+This file represents a scenario where file permissions might cause issues during cleanup operations.
+Content: Restricted access file for permission testing
+Type: Text placeholder
+Scenario: Permission denied error handling
