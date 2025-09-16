@@ -86,6 +86,12 @@ def read_utils_content() -> str:
     try:
         with open(utils_path, 'r', encoding='utf-8') as f:
             content = f.read()
+        
+        # Strip shebang line if present to avoid duplicate shebangs in built scripts
+        lines = content.split('\n')
+        if lines and lines[0].startswith('#!'):
+            content = '\n'.join(lines[1:])
+        
         return content
     except IOError as e:
         raise IOError(f"Error reading utils file: {e}")

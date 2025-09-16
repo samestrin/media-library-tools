@@ -21,7 +21,7 @@ import shutil
 # Source: utils.py
 # ======================================================
 
-#!/usr/bin/env python3
+# SHEBANG_REMOVED
 """
 Shared Utility Module for Media Library Tools
 
