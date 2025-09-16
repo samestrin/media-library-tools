@@ -5,6 +5,7 @@ Thank you for your interest in contributing to Media Library Tools! This documen
 ## Table of Contents
 
 - [Getting Started](#getting-started)
+- [Enhanced Build System](#enhanced-build-system)
 - [Development Environment](#development-environment)
 - [Project Structure](#project-structure)
 - [Coding Standards](#coding-standards)
@@ -22,6 +23,10 @@ Thank you for your interest in contributing to Media Library Tools! This documen
 - Basic understanding of media file organization
 - Familiarity with command-line tools
 
+### Quick Start (New Contributors)
+
+**🚀 For new contributors**: Follow our [Quick Start Guide](planning/sprints/active/3.0_build_commit_automation/artifacts/quick_start_guide.md) for a 5-10 minute setup that gets you contributing immediately.
+
 ### Initial Setup
 
 1. **Fork and Clone**
@@ -30,12 +35,21 @@ Thank you for your interest in contributing to Media Library Tools! This documen
    cd media-library-tools
    ```
 
-2. **Install Development Dependencies**
+2. **Verify Enhanced Build System**
    ```bash
-   pip install -e ".[dev]"
+   # Test the enhanced build system (no external dependencies needed)
+   python3 build.py --all --validate
+   # Expected: ✅ All tools built successfully in <1s
+   ```
+
+3. **Optional: Install Pre-commit Hooks**
+   ```bash
+   # For enhanced development experience
+   pip install pre-commit
+   pre-commit install
    ```
    
-This installs the project in editable mode with development dependencies (black, ruff, pre-commit, bandit, coverage).
+**Note**: Our build system requires no external dependencies - everything uses Python standard library only.
 
 ### Security Scanning (Bandit)
 - Bandit runs via pre-commit to scan first-party packages: `SABnzbd/`, `plex/`, and `plex-api/`.
@@ -51,6 +65,24 @@ This installs the project in editable mode with development dependencies (black,
   ```
 - Reports are saved to `results/coverage_html/` (HTML) and `results/coverage.xml` (XML).
 
+### Integrated Development Workflow
+
+With the enhanced build system, your typical development workflow becomes:
+
+1. **Start Development**: `git checkout -b feature/your-feature`
+2. **Quick Build & Test**: `python3 build.py --all --validate` (typically <0.1s)  
+3. **Make Changes**: Edit source files as needed
+4. **Incremental Build**: `python3 build.py --all` (selective rebuild)
+5. **Run Tests**: `python3 tests/run_tests.py` for comprehensive validation
+6. **Commit**: `git commit -m "message"` (automatic selective validation via pre-commit hooks)
+
+The build system automatically optimizes for your workflow:
+- **Documentation changes**: Instant validation (~0.01s)
+- **Single tool changes**: Fast selective rebuild (~0.05s)  
+- **Infrastructure changes**: Full validation when needed (~3s)
+
+For more detailed workflow information, see our [Enhanced Workflow Guide](planning/sprints/active/3.0_build_commit_automation/artifacts/workflow_guide.md).
+
 3. **Set Up Environment**
    ```bash
    # Copy the example environment file
@@ -64,6 +96,57 @@ This installs the project in editable mode with development dependencies (black,
    ```bash
    python tests/run_tests.py
    ```
+
+## Enhanced Build System
+
+Our build system has been significantly enhanced with **selective rebuild**, **performance optimizations**, and **comprehensive error reporting**. 
+
+### ⚡ Performance Highlights
+- **85-97% faster** incremental builds
+- **Sub-second** pre-commit validation for typical changes
+- **Intelligent** selective validation
+- **Enhanced** error reporting with resolution suggestions
+
+### Key Features
+
+#### 1. Selective Rebuild
+The build system automatically detects which tools need rebuilding:
+```bash
+python3 build.py --all
+# Only rebuilds tools that have actually changed
+# Result: 0.01s (unchanged) vs 3s (full rebuild)
+```
+
+#### 2. Enhanced Error Reporting
+Get detailed, actionable error messages:
+```bash
+Build Error (Missing Source File): plex/nonexistent_tool
+  Details: [Errno 2] No such file or directory
+  Resolution: Verify the script path exists and is accessible
+```
+
+#### 3. Pre-commit Selective Validation
+Smart pre-commit hooks that only validate changed tools:
+- **Documentation changes**: ~0.01s validation
+- **Single tool changes**: ~0.05s validation  
+- **Infrastructure changes**: Falls back to full validation (~3s)
+
+### Quick Commands
+
+| Task | Command | Expected Time |
+|------|---------|---------------|
+| Daily development | `python3 build.py --all` | <0.1s |
+| Pre-commit validation | `python3 build.py --all --validate` | <0.5s |
+| Troubleshooting | `python3 build.py --all --verbose` | <1s |
+| Clean rebuild | `python3 build.py --clean --all` | ~3s |
+
+### Comprehensive Documentation
+
+For detailed information:
+- 📖 [Enhanced Workflow Guide](planning/sprints/active/3.0_build_commit_automation/artifacts/workflow_guide.md) - Complete development workflow
+- 🔧 [Build Script Usage Guide](planning/sprints/active/3.0_build_commit_automation/artifacts/build_script_usage_guide.md) - Advanced build features  
+- 🚨 [Troubleshooting Guide](planning/sprints/active/3.0_build_commit_automation/artifacts/troubleshooting_guide.md) - Solutions for common issues
+- ⚡ [Performance Test Results](planning/sprints/active/3.0_build_commit_automation/artifacts/performance_test_results.md) - Detailed performance metrics
 
 ## Development Environment
 
