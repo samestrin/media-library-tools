@@ -183,7 +183,7 @@ class TestGlobalConfigurationSupport(CLIConsistencyTestCase):
         for tool in self.SIMPLE_TOOLS:
             with self.subTest(tool=tool):
                 result = self.run_tool_with_args(
-                    tool, ['--dry-run', self.test_dir],
+                    tool, ['--dry-run', '--no-banner', '-y', self.test_dir],
                     env_vars={'AUTO_CONFIRM': 'true'}
                 )
                 
@@ -195,7 +195,7 @@ class TestGlobalConfigurationSupport(CLIConsistencyTestCase):
         # Test special requirement tools with their specific arguments
         for tool, extra_args in self.SPECIAL_REQUIREMENT_TOOLS.items():
             with self.subTest(tool=tool):
-                args = ['--dry-run'] + extra_args
+                args = ['--dry-run', '--no-banner', '-y'] + extra_args
                 result = self.run_tool_with_args(
                     tool, args,
                     env_vars={'AUTO_CONFIRM': 'true'}
@@ -215,7 +215,7 @@ class TestGlobalConfigurationSupport(CLIConsistencyTestCase):
         for tool in self.SIMPLE_TOOLS:
             with self.subTest(tool=tool):
                 result = self.run_tool_with_args(
-                    tool, ['--dry-run', self.test_dir],
+                    tool, ['--dry-run', '--no-banner', '-y', self.test_dir],
                     env_vars={'QUIET_MODE': 'true'}
                 )
                 
@@ -227,7 +227,7 @@ class TestGlobalConfigurationSupport(CLIConsistencyTestCase):
         # Test special requirement tools with their specific arguments
         for tool, extra_args in self.SPECIAL_REQUIREMENT_TOOLS.items():
             with self.subTest(tool=tool):
-                args = ['--dry-run'] + extra_args
+                args = ['--dry-run', '--no-banner', '-y'] + extra_args
                 result = self.run_tool_with_args(
                     tool, args,
                     env_vars={'QUIET_MODE': 'true'}
@@ -246,7 +246,7 @@ class TestGlobalConfigurationSupport(CLIConsistencyTestCase):
             with self.subTest(tool=tool):
                 # Test with AUTO_EXECUTE=true should override dry-run
                 result = self.run_tool_with_args(
-                    tool, ['--dry-run', self.test_dir],
+                    tool, ['--dry-run', '--no-banner', '-y', self.test_dir],
                     env_vars={'AUTO_EXECUTE': 'true'}
                 )
                 
@@ -381,7 +381,7 @@ class TestBannerBehavior(CLIConsistencyTestCase):
         tool = 'plex_make_dirs'
         
         result = self.run_tool_with_args(
-            tool, ['--dry-run', '--no-banner', self.test_dir]
+            tool, ['--dry-run', '--no-banner', '-y', self.test_dir]
         )
         
         # Should not cause errors

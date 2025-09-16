@@ -506,7 +506,7 @@ class PlexDirectoryCorrector:
 
         print(f"Processing directory: {input_dir}")
         if self.dry_run:
-            print(f"DRY RUN MODE - Limited to {self.max_items} items")
+            print(f"DRY-RUN MODE - Limited to {self.max_items} items")
         print()
 
         # Get immediate child entries (files and directories)
@@ -558,7 +558,13 @@ Cron Usage:
     parser.add_argument(
         '--dry-run',
         action='store_true',
+        default=True,
         help='Show what would be done without making changes (limited to 5 items)'
+    )
+    parser.add_argument(
+        '--execute',
+        action='store_true',
+        help='Actually perform the directory corrections (overrides --dry-run)'
     )
     parser.add_argument(
         '-y', '--yes',
@@ -598,6 +604,10 @@ Cron Usage:
     )
 
     args = parser.parse_args()
+
+    # Handle execute flag (overrides dry-run default)
+    if args.execute:
+        args.dry_run = False
 
     # Handle debug mode
     if args.debug:
