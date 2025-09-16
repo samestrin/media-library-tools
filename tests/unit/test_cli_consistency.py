@@ -16,380 +16,416 @@ Author: Media Library Tools Project
 Version: 1.0.0
 """
 
+import contextlib
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
-import importlib.util
-import subprocess
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Dict, List
 
 
 class CLIConsistencyTestCase(unittest.TestCase):
     """Base test case for CLI consistency testing."""
-    
+
     @classmethod
     def setUpClass(cls):
         """Set up test environment."""
         cls.project_root = Path(__file__).parent.parent.parent
-        cls.build_dir = cls.project_root / 'build'
-        
+        cls.build_dir = cls.project_root / "build"
+
         # Ensure all tools are built
         if not cls.build_dir.exists():
             cls.build_all_tools()
-    
+
     @classmethod
     def build_all_tools(cls):
         """Build all tools before testing."""
-        build_script = cls.project_root / 'build.py'
-        result = subprocess.run([
-            sys.executable, str(build_script), '--all'
-        ], capture_output=True, text=True, cwd=cls.project_root)
-        
+        build_script = cls.project_root / "build.py"
+        result = subprocess.run(
+            [sys.executable, str(build_script), "--all"],
+            capture_output=True,
+            text=True,
+            cwd=cls.project_root,
+        )
+
         if result.returncode != 0:
             raise RuntimeError(f"Failed to build tools: {result.stderr}")
-    
-    def run_tool_with_args(self, tool_name: str, args: List[str], 
-                          env_vars: Dict[str, str] = None) -> subprocess.CompletedProcess:
+
+    def run_tool_with_args(
+        self, tool_name: str, args: List[str], env_vars: Dict[str, str] = None
+    ) -> subprocess.CompletedProcess:
         """Run a tool with specified arguments and environment variables."""
         tool_path = self.build_dir / tool_name
         if not tool_path.exists():
             self.fail(f"Tool not found: {tool_path}")
-        
+
         env = os.environ.copy()
         if env_vars:
             env.update(env_vars)
-        
-        return subprocess.run([
-            sys.executable, str(tool_path)
-        ] + args, capture_output=True, text=True, env=env, timeout=30)
-    
+
+        return subprocess.run(
+            [sys.executable, str(tool_path)] + args,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30,
+        )
+
     def get_help_text(self, tool_name: str) -> str:
         """Get help text for a tool."""
-        result = self.run_tool_with_args(tool_name, ['--help'])
+        result = self.run_tool_with_args(tool_name, ["--help"])
         return result.stdout if result.returncode == 0 else result.stderr
 
 
 class TestStandardCLIArguments(CLIConsistencyTestCase):
     """Test that all tools implement standard CLI arguments."""
-    
+
     # List of all tools to test
     TOOLS = [
-        'plex_correct_dirs',
-        'plex_make_dirs',
-        'plex_make_seasons',
-        'plex_make_years',
-        'plex_make_all_seasons',
-        'sabnzbd_cleanup',
-        'plex_update_tv_years',
-        'plex_move_movie_extras',
-        'plex_movie_subdir_renamer'
+        "plex_correct_dirs",
+        "plex_make_dirs",
+        "plex_make_seasons",
+        "plex_make_years",
+        "plex_make_all_seasons",
+        "sabnzbd_cleanup",
+        "plex_update_tv_years",
+        "plex_move_movie_extras",
+        "plex_movie_subdir_renamer",
     ]
-    
+
     # Standard arguments that should be present in all tools
     REQUIRED_ARGS = [
-        '--verbose',
-        '-v',  # Short form of verbose
-        '--debug',
-        '--no-banner',
-        '-y',
-        '--yes',
-        '--force',
-        '--version'
+        "--verbose",
+        "-v",  # Short form of verbose
+        "--debug",
+        "--no-banner",
+        "-y",
+        "--yes",
+        "--force",
+        "--version",
     ]
-    
+
     def test_all_tools_have_standard_arguments(self):
         """Test that all tools support the required standard arguments."""
         for tool in self.TOOLS:
             with self.subTest(tool=tool):
                 help_text = self.get_help_text(tool)
-                
+
                 for arg in self.REQUIRED_ARGS:
-                    self.assertIn(arg, help_text, 
-                                f"Tool '{tool}' missing required argument '{arg}'")
-    
+                    self.assertIn(
+                        arg,
+                        help_text,
+                        f"Tool '{tool}' missing required argument '{arg}'",
+                    )
+
     def test_help_argument_works(self):
         """Test that --help argument works for all tools."""
         for tool in self.TOOLS:
             with self.subTest(tool=tool):
-                result = self.run_tool_with_args(tool, ['--help'])
-                self.assertEqual(result.returncode, 0, 
-                               f"Tool '{tool}' --help failed")
-                self.assertIn('usage:', result.stdout.lower(),
-                            f"Tool '{tool}' help text missing usage information")
-    
+                result = self.run_tool_with_args(tool, ["--help"])
+                self.assertEqual(result.returncode, 0, f"Tool '{tool}' --help failed")
+                self.assertIn(
+                    "usage:",
+                    result.stdout.lower(),
+                    f"Tool '{tool}' help text missing usage information",
+                )
+
     def test_version_argument_works(self):
         """Test that --version argument works for all tools."""
         for tool in self.TOOLS:
             with self.subTest(tool=tool):
-                result = self.run_tool_with_args(tool, ['--version'])
-                self.assertEqual(result.returncode, 0, 
-                               f"Tool '{tool}' --version failed")
+                result = self.run_tool_with_args(tool, ["--version"])
+                self.assertEqual(
+                    result.returncode, 0, f"Tool '{tool}' --version failed"
+                )
                 # Version output should contain the tool name or version number
                 self.assertTrue(
-                    tool.replace('_', ' ') in result.stdout or 
-                    any(char.isdigit() for char in result.stdout),
-                    f"Tool '{tool}' version output seems invalid: {result.stdout}"
+                    tool.replace("_", " ") in result.stdout
+                    or any(char.isdigit() for char in result.stdout),
+                    f"Tool '{tool}' version output seems invalid: {result.stdout}",
                 )
 
 
 class TestGlobalConfigurationSupport(CLIConsistencyTestCase):
     """Test global configuration support across all tools."""
-    
+
     # Tools that support AUTO_EXECUTE (have execute/dry-run pattern)
     AUTO_EXECUTE_TOOLS = [
-        'plex_make_dirs',
-        'plex_make_seasons', 
-        'plex_make_years',
-        'plex_make_all_seasons',
-        'sabnzbd_cleanup',
-        'plex_movie_subdir_renamer'
+        "plex_make_dirs",
+        "plex_make_seasons",
+        "plex_make_years",
+        "plex_make_all_seasons",
+        "sabnzbd_cleanup",
+        "plex_movie_subdir_renamer",
     ]
-    
+
     # Tools with simple directory argument (for easy testing)
     SIMPLE_TOOLS = [
-        'plex_correct_dirs',
-        'plex_make_dirs',
-        'plex_make_seasons',
-        'plex_make_years',
-        'plex_make_all_seasons',
-        'sabnzbd_cleanup',
-        'plex_movie_subdir_renamer'
+        "plex_correct_dirs",
+        "plex_make_dirs",
+        "plex_make_seasons",
+        "plex_make_years",
+        "plex_make_all_seasons",
+        "sabnzbd_cleanup",
+        "plex_movie_subdir_renamer",
     ]
-    
+
     # Tools with special requirements (test differently)
     SPECIAL_REQUIREMENT_TOOLS = {
-        'plex_update_tv_years': ['--tvdb-key', 'test_key'],
-        'plex_move_movie_extras': ['test_file.mp4', 'test_subdir']
+        "plex_update_tv_years": ["--tvdb-key", "test_key"],
+        "plex_move_movie_extras": ["test_file.mp4", "test_subdir"],
     }
-    
+
     def setUp(self):
         """Set up test environment with temporary directory."""
         self.test_dir = tempfile.mkdtemp()
         self.addCleanup(self.cleanup_test_dir)
-    
+
     def cleanup_test_dir(self):
         """Clean up test directory."""
         import shutil
-        try:
+
+        with contextlib.suppress(Exception):
             shutil.rmtree(self.test_dir)
-        except Exception:
-            pass
-    
+
     def test_auto_confirm_support(self):
         """Test that AUTO_CONFIRM global configuration works."""
         # Test simple tools with just directory argument
         for tool in self.SIMPLE_TOOLS:
             with self.subTest(tool=tool):
                 result = self.run_tool_with_args(
-                    tool, ['--dry-run', '--no-banner', '-y', self.test_dir],
-                    env_vars={'AUTO_CONFIRM': 'true'}
+                    tool,
+                    ["--dry-run", "--no-banner", "-y", self.test_dir],
+                    env_vars={"AUTO_CONFIRM": "true"},
                 )
-                
+
                 output = result.stdout + result.stderr
                 # The key is that AUTO_CONFIRM doesn't cause errors
-                self.assertNotIn('error', output.lower(),
-                               f"Tool '{tool}' failed with AUTO_CONFIRM: {output}")
-        
+                self.assertNotIn(
+                    "error",
+                    output.lower(),
+                    f"Tool '{tool}' failed with AUTO_CONFIRM: {output}",
+                )
+
         # Test special requirement tools with their specific arguments
         for tool, extra_args in self.SPECIAL_REQUIREMENT_TOOLS.items():
             with self.subTest(tool=tool):
-                args = ['--dry-run', '--no-banner', '-y'] + extra_args
+                args = ["--dry-run", "--no-banner", "-y"] + extra_args
                 result = self.run_tool_with_args(
-                    tool, args,
-                    env_vars={'AUTO_CONFIRM': 'true'}
+                    tool, args, env_vars={"AUTO_CONFIRM": "true"}
                 )
-                
+
                 output = result.stdout + result.stderr
                 # For these tools, we just check that AUTO_CONFIRM config is processed
                 # without causing configuration-related errors
-                config_errors = ['auto_confirm', 'configuration error', 'config error']
-                has_config_error = any(error in output.lower() for error in config_errors)
-                self.assertFalse(has_config_error,
-                               f"Tool '{tool}' has config error with AUTO_CONFIRM: {output}")
-    
+                config_errors = ["auto_confirm", "configuration error", "config error"]
+                has_config_error = any(
+                    error in output.lower() for error in config_errors
+                )
+                self.assertFalse(
+                    has_config_error,
+                    f"Tool '{tool}' has config error with AUTO_CONFIRM: {output}",
+                )
+
     def test_quiet_mode_support(self):
         """Test that QUIET_MODE global configuration works."""
         # Test simple tools with just directory argument
         for tool in self.SIMPLE_TOOLS:
             with self.subTest(tool=tool):
                 result = self.run_tool_with_args(
-                    tool, ['--dry-run', '--no-banner', '-y', self.test_dir],
-                    env_vars={'QUIET_MODE': 'true'}
+                    tool,
+                    ["--dry-run", "--no-banner", "-y", self.test_dir],
+                    env_vars={"QUIET_MODE": "true"},
                 )
-                
+
                 output = result.stdout + result.stderr
                 # QUIET_MODE should not cause errors
-                self.assertNotIn('error', output.lower(),
-                               f"Tool '{tool}' failed with QUIET_MODE: {output}")
-        
+                self.assertNotIn(
+                    "error",
+                    output.lower(),
+                    f"Tool '{tool}' failed with QUIET_MODE: {output}",
+                )
+
         # Test special requirement tools with their specific arguments
         for tool, extra_args in self.SPECIAL_REQUIREMENT_TOOLS.items():
             with self.subTest(tool=tool):
-                args = ['--dry-run', '--no-banner', '-y'] + extra_args
+                args = ["--dry-run", "--no-banner", "-y"] + extra_args
                 result = self.run_tool_with_args(
-                    tool, args,
-                    env_vars={'QUIET_MODE': 'true'}
+                    tool, args, env_vars={"QUIET_MODE": "true"}
                 )
-                
+
                 output = result.stdout + result.stderr
                 # For these tools, we just check that QUIET_MODE config is processed
-                config_errors = ['quiet_mode', 'configuration error', 'config error']
-                has_config_error = any(error in output.lower() for error in config_errors)
-                self.assertFalse(has_config_error,
-                               f"Tool '{tool}' has config error with QUIET_MODE: {output}")
-    
+                config_errors = ["quiet_mode", "configuration error", "config error"]
+                has_config_error = any(
+                    error in output.lower() for error in config_errors
+                )
+                self.assertFalse(
+                    has_config_error,
+                    f"Tool '{tool}' has config error with QUIET_MODE: {output}",
+                )
+
     def test_auto_execute_support(self):
         """Test that AUTO_EXECUTE global configuration works for applicable tools."""
         for tool in self.AUTO_EXECUTE_TOOLS:
             with self.subTest(tool=tool):
                 # Test with AUTO_EXECUTE=true should override dry-run
                 result = self.run_tool_with_args(
-                    tool, ['--dry-run', '--no-banner', '-y', self.test_dir],
-                    env_vars={'AUTO_EXECUTE': 'true'}
+                    tool,
+                    ["--dry-run", "--no-banner", "-y", self.test_dir],
+                    env_vars={"AUTO_EXECUTE": "true"},
                 )
-                
+
                 output = result.stdout + result.stderr
-                
+
                 # AUTO_EXECUTE should not cause configuration errors
-                config_errors = ['auto_execute', 'configuration error', 'config error']
-                has_config_error = any(error in output.lower() for error in config_errors)
-                self.assertFalse(has_config_error,
-                               f"Tool '{tool}' has config error with AUTO_EXECUTE: {output}")
-                
+                config_errors = ["auto_execute", "configuration error", "config error"]
+                has_config_error = any(
+                    error in output.lower() for error in config_errors
+                )
+                self.assertFalse(
+                    has_config_error,
+                    f"Tool '{tool}' has config error with AUTO_EXECUTE: {output}",
+                )
+
                 # Should show evidence of execute mode or non-dry-run behavior
-                execute_indicators = [
-                    'execute', 'changes will be made', 'proceeding'
-                ]
-                has_execute_indicator = any(
+                execute_indicators = ["execute", "changes will be made", "proceeding"]
+                any(
                     indicator in output.lower() for indicator in execute_indicators
                 )
-                
+
                 # At minimum, AUTO_EXECUTE should not cause the tool to fail with config errors
                 if result.returncode != 0:
                     # It's OK if tools fail for other reasons (like missing files)
                     # but not for configuration issues
-                    self.assertFalse(has_config_error,
-                                   f"Tool '{tool}' failed with AUTO_EXECUTE config error")
+                    self.assertFalse(
+                        has_config_error,
+                        f"Tool '{tool}' failed with AUTO_EXECUTE config error",
+                    )
 
 
 class TestArgumentPrecedence(CLIConsistencyTestCase):
     """Test that CLI arguments take precedence over global configuration."""
-    
+
     def setUp(self):
         """Set up test environment with temporary directory."""
         self.test_dir = tempfile.mkdtemp()
         self.addCleanup(self.cleanup_test_dir)
-    
+
     def cleanup_test_dir(self):
         """Clean up test directory."""
         import shutil
-        try:
+
+        with contextlib.suppress(Exception):
             shutil.rmtree(self.test_dir)
-        except Exception:
-            pass
-    
+
     def test_cli_overrides_auto_confirm(self):
         """Test that CLI -y flag works even when AUTO_CONFIRM=false."""
         # Test one representative tool
-        tool = 'plex_make_dirs'
-        
+        tool = "plex_make_dirs"
+
         result = self.run_tool_with_args(
-            tool, ['--dry-run', '-y', self.test_dir],
-            env_vars={'AUTO_CONFIRM': 'false'}
+            tool, ["--dry-run", "-y", self.test_dir], env_vars={"AUTO_CONFIRM": "false"}
         )
-        
+
         output = result.stdout + result.stderr
-        
+
         # Should show warning about -y having no effect in dry-run
         # This proves that CLI -y was processed despite AUTO_CONFIRM=false
         self.assertTrue(
-            'warning' in output.lower() or '-y' in output.lower(),
-            f"CLI -y flag not processed properly: {output}"
+            "warning" in output.lower() or "-y" in output.lower(),
+            f"CLI -y flag not processed properly: {output}",
         )
-    
+
     def test_cli_overrides_quiet_mode(self):
         """Test that CLI --no-banner works even when QUIET_MODE=false."""
         # Test one representative tool
-        tool = 'plex_make_dirs'
-        
+        tool = "plex_make_dirs"
+
         result = self.run_tool_with_args(
-            tool, ['--dry-run', '--no-banner', self.test_dir],
-            env_vars={'QUIET_MODE': 'false'}
+            tool,
+            ["--dry-run", "--no-banner", self.test_dir],
+            env_vars={"QUIET_MODE": "false"},
         )
-        
+
         # Should not cause errors
         output = result.stdout + result.stderr
-        self.assertNotIn('error', output.lower(),
-                       f"CLI --no-banner flag failed: {output}")
+        self.assertNotIn(
+            "error", output.lower(), f"CLI --no-banner flag failed: {output}"
+        )
 
 
 class TestHelpTextConsistency(CLIConsistencyTestCase):
     """Test that help text follows consistent patterns."""
-    
+
     def test_help_text_sections(self):
         """Test that help text includes standard sections."""
-        tools_to_test = ['plex_correct_dirs', 'plex_make_dirs']  # Representative sample
-        
-        required_sections = [
-            'usage:',
-            'positional arguments',
-            'options',
-            'examples'
-        ]
-        
+        tools_to_test = ["plex_correct_dirs", "plex_make_dirs"]  # Representative sample
+
+        required_sections = ["usage:", "positional arguments", "options", "examples"]
+
         for tool in tools_to_test:
             with self.subTest(tool=tool):
                 help_text = self.get_help_text(tool).lower()
-                
+
                 for section in required_sections:
-                    self.assertIn(section, help_text,
-                                f"Tool '{tool}' help missing section '{section}'")
-    
+                    self.assertIn(
+                        section,
+                        help_text,
+                        f"Tool '{tool}' help missing section '{section}'",
+                    )
+
     def test_global_config_documentation(self):
         """Test that tools document global configuration in help text."""
         # Test the tool we specifically updated
-        tool = 'plex_correct_dirs'
+        tool = "plex_correct_dirs"
         help_text = self.get_help_text(tool)
-        
-        self.assertIn('Global Configuration', help_text,
-                     f"Tool '{tool}' help missing global configuration section")
-        self.assertIn('AUTO_CONFIRM', help_text,
-                     f"Tool '{tool}' help missing AUTO_CONFIRM documentation")
+
+        self.assertIn(
+            "Global Configuration",
+            help_text,
+            f"Tool '{tool}' help missing global configuration section",
+        )
+        self.assertIn(
+            "AUTO_CONFIRM",
+            help_text,
+            f"Tool '{tool}' help missing AUTO_CONFIRM documentation",
+        )
 
 
 class TestBannerBehavior(CLIConsistencyTestCase):
     """Test banner display behavior across tools."""
-    
+
     def setUp(self):
         """Set up test environment with temporary directory."""
         self.test_dir = tempfile.mkdtemp()
         self.addCleanup(self.cleanup_test_dir)
-    
+
     def cleanup_test_dir(self):
         """Clean up test directory."""
         import shutil
-        try:
+
+        with contextlib.suppress(Exception):
             shutil.rmtree(self.test_dir)
-        except Exception:
-            pass
-    
+
     def test_no_banner_flag_works(self):
         """Test that --no-banner flag suppresses banner display."""
         # Test one representative tool
-        tool = 'plex_make_dirs'
-        
+        tool = "plex_make_dirs"
+
         result = self.run_tool_with_args(
-            tool, ['--dry-run', '--no-banner', '-y', self.test_dir]
+            tool, ["--dry-run", "--no-banner", "-y", self.test_dir]
         )
-        
+
         # Should not cause errors
         output = result.stdout + result.stderr
-        self.assertNotIn('error', output.lower(),
-                       f"--no-banner flag caused error: {output}")
+        self.assertNotIn(
+            "error", output.lower(), f"--no-banner flag caused error: {output}"
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Run tests with verbose output
     unittest.main(verbosity=2)

@@ -8,6 +8,7 @@ version = "1.0.0"
 description = "Self-contained Python CLI utilities for managing media libraries (Plex, SABnzbd, qBittorrent)"
 readme = "README.md"
 requires-python = ">=3.8"
+license = {text = "MIT"}
 authors = [
     {name = "Sam Estrin", email = "sam@samestrin.com"}
 ]
@@ -15,7 +16,6 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
@@ -98,3 +98,11 @@ known-first-party = ["tests"]
 
 # Pre-commit configuration reference
 # Create .pre-commit-config.yaml separately if needed
+
+# Setuptools configuration for package discovery
+[tool.setuptools]
+packages = []
+py-modules = ["utils"]
+
+[tool.setuptools.package-data]
+"*" = ["*.md", "*.txt", "*.yml", "*.yaml"]
