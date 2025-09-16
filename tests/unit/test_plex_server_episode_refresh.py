@@ -868,8 +868,8 @@ class TestIntegrationWorkflow(MediaLibraryTestCase):
             nonlocal call_count
             call_count += 1
 
-            if call_count == 1:  # Initial metadata succeeds
-                return {
+            responses = {
+                1: {  # Initial metadata succeeds
                     "MediaContainer": {
                         "Metadata": [
                             {
@@ -880,13 +880,11 @@ class TestIntegrationWorkflow(MediaLibraryTestCase):
                             }
                         ]
                     }
-                }
-            elif call_count == 2:  # Analyze fails
-                return None
-            elif call_count == 3:  # Refresh succeeds
-                return ""
-            else:  # Other calls succeed
-                return {}
+                },
+                2: None,  # Analyze fails
+                3: "",    # Refresh succeeds
+            }
+            return responses.get(call_count, {})  # Other calls succeed
 
         with patch.object(client, "_make_request", side_effect=mock_make_request):
             result = client.refresh_episode_image("12345")

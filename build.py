@@ -92,7 +92,7 @@ def read_utils_content() -> str:
 
         return content
     except OSError as e:
-        raise OSError(f"Error reading utils file: {e}")
+        raise OSError(f"Error reading utils file: {e}") from e
 
 
 def should_rebuild(
@@ -342,7 +342,6 @@ def categorize_build_error(error: Exception, context: str) -> tuple[str, str]:
     Returns:
         Tuple of (category, suggestion)
     """
-    type(error).__name__
     error_msg = str(error).lower()
 
     if isinstance(error, FileNotFoundError):

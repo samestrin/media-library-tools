@@ -34,18 +34,18 @@ def load_sabnzbd_tool(tool_name):
             return None
 
         # Copy to temp file with .py extension
-        temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False)
-        with open(tool_path) as f:
-            temp_file.write(f.read())
-        temp_file.close()
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as temp_file:
+            temp_file_name = temp_file.name
+            with open(tool_path) as f:
+                temp_file.write(f.read())
 
         # Load as module
-        spec = importlib.util.spec_from_file_location(tool_name, temp_file.name)
+        spec = importlib.util.spec_from_file_location(tool_name, temp_file_name)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
 
         # Clean up temp file
-        os.unlink(temp_file.name)
+        os.unlink(temp_file_name)
 
         return module
     except Exception:
@@ -60,18 +60,18 @@ def load_plex_tool(tool_name):
             return None
 
         # Copy to temp file with .py extension
-        temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False)
-        with open(tool_path) as f:
-            temp_file.write(f.read())
-        temp_file.close()
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as temp_file:
+            temp_file_name = temp_file.name
+            with open(tool_path) as f:
+                temp_file.write(f.read())
 
         # Load as module
-        spec = importlib.util.spec_from_file_location(tool_name, temp_file.name)
+        spec = importlib.util.spec_from_file_location(tool_name, temp_file_name)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
 
         # Clean up temp file
-        os.unlink(temp_file.name)
+        os.unlink(temp_file_name)
 
         return module
     except Exception:

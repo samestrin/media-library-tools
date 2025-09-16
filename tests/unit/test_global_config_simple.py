@@ -252,7 +252,7 @@ TRAILING_SPACES=true
     def test_case_sensitivity(self):
         """Test that variable names are case-sensitive."""
         os.environ["AUTO_EXECUTE"] = "false"  # uppercase
-        os.environ["auto_execute"] = "true"   # lowercase
+        os.environ["auto_execute"] = "true"   # lowercase  # noqa: SIM112
 
         # Should match exact case
         result = self.read_func("AUTO_EXECUTE", True)

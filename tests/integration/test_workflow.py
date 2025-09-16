@@ -40,18 +40,18 @@ def load_tool(tool_category, tool_name):
             return None
 
         # Copy to temp file with .py extension
-        temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False)
-        with open(tool_path) as f:
-            temp_file.write(f.read())
-        temp_file.close()
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as temp_file:
+            with open(tool_path) as f:
+                temp_file.write(f.read())
+            temp_file_name = temp_file.name
 
         # Load as module
-        spec = importlib.util.spec_from_file_location(tool_name, temp_file.name)
+        spec = importlib.util.spec_from_file_location(tool_name, temp_file_name)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
 
         # Clean up temp file
-        os.unlink(temp_file.name)
+        os.unlink(temp_file_name)
 
         return module
     except Exception:
@@ -420,11 +420,10 @@ class TestErrorRecoveryWorkflow(MediaLibraryTestCase):
 
             # Should handle restricted directory gracefully
             detector = SABnzbdDetector()
-            try:
-                detector.analyze_directory(restricted_dir)
-            except PermissionError:
+            from contextlib import suppress
+            with suppress(PermissionError):
                 # This is expected and acceptable
-                pass
+                detector.analyze_directory(restricted_dir)
 
         finally:
             # Restore permissions for cleanup
@@ -453,11 +452,10 @@ class TestErrorRecoveryWorkflow(MediaLibraryTestCase):
         self.assertTrue(renamer.is_video_file(source_file))
 
         # Should handle network path without crashing
-        try:
-            renamer.is_video_file(network_path)
-        except (OSError, ValueError):
+        from contextlib import suppress
+        with suppress(OSError, ValueError):
             # These exceptions are acceptable for network issues
-            pass
+            renamer.is_video_file(network_path)
 
 
 @unittest.skipIf(not TEST_HELPERS_AVAILABLE, "Test helpers not available")

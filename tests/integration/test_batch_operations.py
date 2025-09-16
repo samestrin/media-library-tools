@@ -40,18 +40,18 @@ def load_tool(tool_category, tool_name):
             return None
 
         # Copy to temp file with .py extension
-        temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False)
-        with open(tool_path) as f:
-            temp_file.write(f.read())
-        temp_file.close()
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as temp_file:
+            with open(tool_path) as f:
+                temp_file.write(f.read())
+            temp_file_name = temp_file.name
 
         # Load as module
-        spec = importlib.util.spec_from_file_location(tool_name, temp_file.name)
+        spec = importlib.util.spec_from_file_location(tool_name, temp_file_name)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
 
         # Clean up temp file
-        os.unlink(temp_file.name)
+        os.unlink(temp_file_name)
 
         return module
     except Exception:
@@ -165,7 +165,7 @@ class TestBatchSABnzbdOperations(MediaLibraryTestCase):
             )
 
         # Non-SABnzbd directories should not be detected
-        for dir_path, is_sabnzbd, score, indicators in non_sabnzbd_results:
+        for dir_path, is_sabnzbd, _score, _indicators in non_sabnzbd_results:
             self.assertFalse(is_sabnzbd, f"Should not detect {dir_path} as SABnzbd")
 
     @unittest.skipIf(
@@ -439,12 +439,12 @@ class TestBatchTVShowOperations(MediaLibraryTestCase):
 
         all_episodes = []
 
-        for show_name, show_info in shows_data.items():
+        for show_name, _show_info in shows_data.items():
             show_dir = batch_all_seasons_dir / show_name
             show_dir.mkdir()
 
             for season_num, episode_count in zip(
-                show_info["seasons"], show_info["episodes_per_season"]
+                _show_info["seasons"], _show_info["episodes_per_season"]
             ):
                 for episode_num in range(1, episode_count + 1):
                     episode_name = f"{show_name} S{season_num:02d}E{episode_num:02d} Episode {episode_num}.mp4"
@@ -487,7 +487,7 @@ class TestBatchTVShowOperations(MediaLibraryTestCase):
         )
 
         # Verify each movie has the expected number of extras
-        for show_name, show_info in shows_data.items():
+        for show_name, _show_info in shows_data.items():
             show_dir = batch_all_seasons_dir / show_name
             [
                 f for f in show_dir.glob("*.*") if f.name != f"{show_name}.mkv"

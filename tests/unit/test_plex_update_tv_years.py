@@ -97,10 +97,10 @@ class TestCredentialHandling(MediaLibraryTestCase):
 
     def test_get_tvdb_key_not_found(self):
         """Test handling when API key is not found."""
-        with patch.dict(os.environ, {}, clear=True):
-            with patch("os.path.exists", return_value=False):
-                result = self.module.get_tvdb_key_from_sources(debug=False)
-                self.assertIsNone(result)
+        with patch.dict(os.environ, {}, clear=True), \
+             patch("os.path.exists", return_value=False):
+            result = self.module.get_tvdb_key_from_sources(debug=False)
+            self.assertIsNone(result)
 
     def test_cli_priority_over_env(self):
         """Test that CLI argument takes priority over environment variable."""
@@ -114,80 +114,75 @@ class TestCredentialHandling(MediaLibraryTestCase):
         """Test API key retrieval from global .env file."""
         global_env_content = "TVDB_API_KEY=test_key_global\nOTHER_VAR=value"
 
-        with patch.dict(os.environ, {}, clear=True):
-            with patch("os.path.exists", side_effect=lambda path: path != ".env"):
-                with patch("pathlib.Path.home") as mock_home:
-                    mock_home.return_value = Path("/home/user")
-                    with patch(
-                        "builtins.open", mock_open(read_data=global_env_content)
-                    ), patch.object(Path, "exists", return_value=True):
-                        result = self.module.get_tvdb_key_from_sources(debug=False)
-                        self.assertEqual(result, "test_key_global")
+        with patch.dict(os.environ, {}, clear=True), \
+             patch("os.path.exists", side_effect=lambda path: path != ".env"), \
+             patch("pathlib.Path.home") as mock_home, \
+             patch("builtins.open", mock_open(read_data=global_env_content)), \
+             patch.object(Path, "exists", return_value=True):
+            mock_home.return_value = Path("/home/user")
+            result = self.module.get_tvdb_key_from_sources(debug=False)
+            self.assertEqual(result, "test_key_global")
 
     def test_local_env_priority_over_global_env(self):
         """Test that local .env takes priority over global .env."""
         local_env_content = "TVDB_API_KEY=local_key\n"
         global_env_content = "TVDB_API_KEY=global_key\n"
 
-        with patch.dict(os.environ, {}, clear=True):
-            with patch("os.path.exists", return_value=True):
-                with patch("pathlib.Path.home") as mock_home:
-                    mock_home.return_value = Path("/home/user")
-                    with patch.object(Path, "exists", return_value=True):
-                        # Mock file reads to return different content based on path
-                        def mock_open_func(file_path, *args, **kwargs):
-                            if str(file_path).endswith(".env") and not str(
-                                file_path
-                            ).startswith("/home"):
-                                return mock_open(
-                                    read_data=local_env_content
-                                ).return_value
-                            else:
-                                return mock_open(
-                                    read_data=global_env_content
-                                ).return_value
+        with patch.dict(os.environ, {}, clear=True), \
+             patch("os.path.exists", return_value=True), \
+             patch("pathlib.Path.home") as mock_home, \
+             patch.object(Path, "exists", return_value=True):
+            mock_home.return_value = Path("/home/user")
+            # Mock file reads to return different content based on path
+            def mock_open_func(file_path, *args, **kwargs):
+                if str(file_path).endswith(".env") and not str(
+                    file_path
+                ).startswith("/home"):
+                    return mock_open(
+                        read_data=local_env_content
+                    ).return_value
+                else:
+                    return mock_open(
+                        read_data=global_env_content
+                    ).return_value
 
-                        with patch("builtins.open", side_effect=mock_open_func):
-                            result = self.module.get_tvdb_key_from_sources(debug=False)
-                            self.assertEqual(result, "local_key")
+            with patch("builtins.open", side_effect=mock_open_func):
+                result = self.module.get_tvdb_key_from_sources(debug=False)
+                self.assertEqual(result, "local_key")
 
     def test_env_priority_over_global_env(self):
         """Test that environment variable takes priority over global .env."""
         global_env_content = "TVDB_API_KEY=global_key\n"
 
-        with patch.dict(os.environ, {"TVDB_API_KEY": "env_key"}):
-            with patch("os.path.exists", return_value=False):
-                with patch("pathlib.Path.home") as mock_home:
-                    mock_home.return_value = Path("/home/user")
-                    with patch.object(Path, "exists", return_value=True):
-                        with patch(
-                            "builtins.open", mock_open(read_data=global_env_content)
-                        ):
-                            result = self.module.get_tvdb_key_from_sources(debug=False)
-                            self.assertEqual(result, "env_key")
+        with patch.dict(os.environ, {"TVDB_API_KEY": "env_key"}), \
+             patch("os.path.exists", return_value=False), \
+             patch("pathlib.Path.home") as mock_home, \
+             patch.object(Path, "exists", return_value=True), \
+             patch("builtins.open", mock_open(read_data=global_env_content)):
+            mock_home.return_value = Path("/home/user")
+            result = self.module.get_tvdb_key_from_sources(debug=False)
+            self.assertEqual(result, "env_key")
 
     def test_global_env_file_not_found(self):
         """Test handling when global .env file doesn't exist."""
-        with patch.dict(os.environ, {}, clear=True):
-            with patch("os.path.exists", return_value=False):
-                with patch("pathlib.Path.home") as mock_home:
-                    mock_home.return_value = Path("/home/user")
-                    with patch.object(Path, "exists", return_value=False):
-                        result = self.module.get_tvdb_key_from_sources(debug=False)
-                        self.assertIsNone(result)
+        with patch.dict(os.environ, {}, clear=True), \
+             patch("os.path.exists", return_value=False), \
+             patch("pathlib.Path.home") as mock_home, \
+             patch.object(Path, "exists", return_value=False):
+            mock_home.return_value = Path("/home/user")
+            result = self.module.get_tvdb_key_from_sources(debug=False)
+            self.assertIsNone(result)
 
     def test_global_env_file_read_error(self):
         """Test handling when global .env file cannot be read."""
-        with patch.dict(os.environ, {}, clear=True):
-            with patch("os.path.exists", return_value=False):
-                with patch("pathlib.Path.home") as mock_home:
-                    mock_home.return_value = Path("/home/user")
-                    with patch.object(Path, "exists", return_value=True):
-                        with patch(
-                            "builtins.open", side_effect=OSError("Permission denied")
-                        ):
-                            result = self.module.get_tvdb_key_from_sources(debug=False)
-                            self.assertIsNone(result)
+        with patch.dict(os.environ, {}, clear=True), \
+             patch("os.path.exists", return_value=False), \
+             patch("pathlib.Path.home") as mock_home, \
+             patch.object(Path, "exists", return_value=True), \
+             patch("builtins.open", side_effect=OSError("Permission denied")):
+            mock_home.return_value = Path("/home/user")
+            result = self.module.get_tvdb_key_from_sources(debug=False)
+            self.assertIsNone(result)
 
 
 class TestTVDBClient(MediaLibraryTestCase):
@@ -423,17 +418,16 @@ class TestTVShowYearUpdater(MediaLibraryTestCase):
         """Test _get_credential_from_sources method with global .env file."""
         global_env_content = "TEST_CREDENTIAL=global_value\nOTHER_VAR=value"
 
-        with patch.dict(os.environ, {}, clear=True):
-            with patch("os.path.exists", side_effect=lambda path: path != ".env"):
-                with patch("pathlib.Path.home") as mock_home:
-                    mock_home.return_value = Path("/home/user")
-                    with patch(
-                        "builtins.open", mock_open(read_data=global_env_content)
-                    ), patch.object(Path, "exists", return_value=True):
-                        result = self.updater._get_credential_from_sources(
-                            "TEST_CREDENTIAL", None
-                        )
-                        self.assertEqual(result, "global_value")
+        with patch.dict(os.environ, {}, clear=True), \
+             patch("os.path.exists", side_effect=lambda path: path != ".env"), \
+             patch("pathlib.Path.home") as mock_home, \
+             patch("builtins.open", mock_open(read_data=global_env_content)), \
+             patch.object(Path, "exists", return_value=True):
+            mock_home.return_value = Path("/home/user")
+            result = self.updater._get_credential_from_sources(
+                "TEST_CREDENTIAL", None
+            )
+            self.assertEqual(result, "global_value")
 
     def test_get_credential_from_sources_priority_order(self):
         """Test _get_credential_from_sources method priority order."""
@@ -452,44 +446,42 @@ class TestTVShowYearUpdater(MediaLibraryTestCase):
             self.assertEqual(result, "env_value")
 
         # Test that local .env takes priority over global .env
-        with patch.dict(os.environ, {}, clear=True):
-            with patch("os.path.exists", return_value=True):
-                with patch("pathlib.Path.home") as mock_home:
-                    mock_home.return_value = Path("/home/user")
-                    with patch.object(Path, "exists", return_value=True):
+        with patch.dict(os.environ, {}, clear=True), \
+             patch("os.path.exists", return_value=True), \
+             patch("pathlib.Path.home") as mock_home, \
+             patch.object(Path, "exists", return_value=True):
+            mock_home.return_value = Path("/home/user")
 
-                        def mock_open_func(file_path, *args, **kwargs):
-                            if str(file_path).endswith(".env") and not str(
-                                file_path
-                            ).startswith("/home"):
-                                return mock_open(
-                                    read_data=local_env_content
-                                ).return_value
-                            else:
-                                return mock_open(
-                                    read_data=global_env_content
-                                ).return_value
+            def mock_open_func(file_path, *args, **kwargs):
+                if str(file_path).endswith(".env") and not str(
+                    file_path
+                ).startswith("/home"):
+                    return mock_open(
+                        read_data=local_env_content
+                    ).return_value
+                else:
+                    return mock_open(
+                        read_data=global_env_content
+                    ).return_value
 
-                        with patch("builtins.open", side_effect=mock_open_func):
-                            result = self.updater._get_credential_from_sources(
-                                "TEST_CREDENTIAL", None
-                            )
-                            self.assertEqual(result, "local_value")
+            with patch("builtins.open", side_effect=mock_open_func):
+                result = self.updater._get_credential_from_sources(
+                    "TEST_CREDENTIAL", None
+                )
+                self.assertEqual(result, "local_value")
 
     def test_get_credential_from_sources_global_env_error_handling(self):
         """Test _get_credential_from_sources method error handling for global .env."""
-        with patch.dict(os.environ, {}, clear=True):
-            with patch("os.path.exists", return_value=False):
-                with patch("pathlib.Path.home") as mock_home:
-                    mock_home.return_value = Path("/home/user")
-                    with patch.object(Path, "exists", return_value=True):
-                        with patch(
-                            "builtins.open", side_effect=OSError("Permission denied")
-                        ):
-                            result = self.updater._get_credential_from_sources(
-                                "TEST_CREDENTIAL", None
-                            )
-                            self.assertIsNone(result)
+        with patch.dict(os.environ, {}, clear=True), \
+             patch("os.path.exists", return_value=False), \
+             patch("pathlib.Path.home") as mock_home, \
+             patch.object(Path, "exists", return_value=True), \
+             patch("builtins.open", side_effect=OSError("Permission denied")):
+            mock_home.return_value = Path("/home/user")
+            result = self.updater._get_credential_from_sources(
+                "TEST_CREDENTIAL", None
+            )
+            self.assertIsNone(result)
 
 
 class TestNonInteractiveDetection(MediaLibraryTestCase):
@@ -516,10 +508,10 @@ class TestNonInteractiveDetection(MediaLibraryTestCase):
 
         env_vars = ["CRON", "CI", "AUTOMATED", "NON_INTERACTIVE"]
         for var in env_vars:
-            with self.subTest(env_var=var):
-                with patch.dict(os.environ, {var: "1"}):
-                    result = self.module.is_non_interactive()
-                    self.assertTrue(result)
+            with self.subTest(env_var=var), \
+                 patch.dict(os.environ, {var: "1"}):
+                result = self.module.is_non_interactive()
+                self.assertTrue(result)
 
     @patch("sys.stdin.isatty")
     def test_non_interactive_no_term(self, mock_isatty):

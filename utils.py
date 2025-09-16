@@ -198,12 +198,13 @@ class FileLock:
             return True
 
         try:
-            self.lock_file = tempfile.NamedTemporaryFile(
+            with tempfile.NamedTemporaryFile(
                 mode="w", prefix=f"{self.lock_prefix}_", suffix=".lock", delete=False
-            )
-            fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            self.lock_file.write(str(os.getpid()))
-            self.lock_file.flush()
+            ) as temp_file:
+                self.lock_file = temp_file
+                fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                self.lock_file.write(str(os.getpid()))
+                self.lock_file.flush()
             return True
         except OSError as e:
             if self.lock_file:
