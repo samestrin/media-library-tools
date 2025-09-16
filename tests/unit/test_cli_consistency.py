@@ -29,22 +29,36 @@ from typing import Dict, List
 class CLIConsistencyTestCase(unittest.TestCase):
     """Base test case for CLI consistency testing."""
 
+    # Tool directory mapping
+    TOOL_DIRECTORIES = {
+        "plex_correct_dirs": "plex",
+        "plex_make_dirs": "plex",
+        "plex_make_seasons": "plex",
+        "plex_make_years": "plex",
+        "plex_make_all_seasons": "plex",
+        "plex_update_tv_years": "plex",
+        "plex_move_movie_extras": "plex",
+        "plex_movie_subdir_renamer": "plex",
+        "sabnzbd_cleanup": "SABnzbd",
+        "plex_server_episode_refresh": "plex-api",
+    }
+
     @classmethod
     def setUpClass(cls):
         """Set up test environment."""
         cls.project_root = Path(__file__).parent.parent.parent
-        cls.build_dir = cls.project_root / "build"
-
-        # Ensure all tools are built
-        if not cls.build_dir.exists():
-            cls.build_all_tools()
+        
+        # Ensure all tools are built and in their main directories
+        cls.build_all_tools()
 
     @classmethod
     def build_all_tools(cls):
-        """Build all tools before testing."""
+        """Build all tools using the new workflow approach."""
         build_script = cls.project_root / "build.py"
+        
+        # Build tools to build_output directory
         result = subprocess.run(
-            [sys.executable, str(build_script), "--all"],
+            [sys.executable, str(build_script), "--all", "--output-dir", "build_output"],
             capture_output=True,
             text=True,
             cwd=cls.project_root,
@@ -52,12 +66,39 @@ class CLIConsistencyTestCase(unittest.TestCase):
 
         if result.returncode != 0:
             raise RuntimeError(f"Failed to build tools: {result.stderr}")
+        
+        # Copy tools to main directories (mimicking CI workflow)
+        import shutil
+        build_output = cls.project_root / "build_output"
+        
+        if build_output.exists():
+            # Copy from build_output subdirectories to main directories
+            for subdir in ["plex", "SABnzbd", "plex-api"]:
+                src_dir = build_output / subdir
+                dest_dir = cls.project_root / subdir
+                
+                if src_dir.exists():
+                    # Copy all files from src to dest
+                    for item in src_dir.iterdir():
+                        if item.is_file():
+                            dest_file = dest_dir / item.name
+                            shutil.copy2(item, dest_file)
+                            # Make executable
+                            dest_file.chmod(0o755)
+            
+            # Clean up build_output
+            shutil.rmtree(build_output)
 
     def run_tool_with_args(
         self, tool_name: str, args: List[str], env_vars: Dict[str, str] = None
     ) -> subprocess.CompletedProcess:
         """Run a tool with specified arguments and environment variables."""
-        tool_path = self.build_dir / tool_name
+        # Find tool in its main directory
+        tool_dir = self.TOOL_DIRECTORIES.get(tool_name)
+        if not tool_dir:
+            self.fail(f"Unknown tool: {tool_name}")
+        
+        tool_path = self.project_root / tool_dir / tool_name
         if not tool_path.exists():
             self.fail(f"Tool not found: {tool_path}")
 
