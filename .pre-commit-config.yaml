@@ -90,6 +90,17 @@ repos:
             "plex-api"
           ]
 
+  # Local hooks for Media Library Tools
+  - repo: local
+    hooks:
+      - id: build-tools
+        name: Build and Validate Media Library Tools
+        entry: python build.py --all --clean --validate
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
 # Configuration
 default_language_version:
   python: python3

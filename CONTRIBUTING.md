@@ -157,6 +157,27 @@ python build.py --all --clean
 3. **Build**: Generate standalone scripts for distribution
 4. **Distribution**: Share built scripts from `build/` directory
 
+### Automated Build Validation
+
+The project now includes automated build validation to ensure code quality:
+- Pre-commit hooks automatically build and validate tools
+- CI/CD pipeline tests both source and built versions
+- Quality gates prevent merging broken code
+
+To set up pre-commit hooks:
+```bash
+# Install pre-commit
+pip install pre-commit
+
+# Install the git hook scripts
+pre-commit install
+```
+
+After installation, the pre-commit hooks will automatically run on every commit, ensuring that:
+- All tools build successfully
+- Built tools pass syntax validation
+- Code meets quality standards
+
 ### Testing Built Tools
 
 ```bash
@@ -168,7 +189,17 @@ python tests/run_tests.py --built-tools --categories unit
 
 # Test with custom build directory
 python tests/run_tests.py --built-tools --build-dir ../dist
+
+# Quick validation during development
+python tests/run_tests.py --built-tools --categories unit --fast
 ```
+
+### Best Practices
+
+1. **Always test against built tools** before submitting pull requests
+2. **Run the full test suite** to ensure no regressions
+3. **Verify build output** works in your target environment
+4. **Use pre-commit hooks** to catch issues early in development
 
 ## Project Structure
 

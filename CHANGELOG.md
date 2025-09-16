@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0-beta] - 2025-09-15
+
+### Added
+- **Automated Build and Commit Workflow**: Comprehensive automation to ensure code quality and build reliability
+  - Pre-commit hooks that automatically build and validate all tools before allowing commits
+  - GitHub Actions CI/CD pipeline that tests builds on multiple operating systems and Python versions
+  - Automated validation that built tools pass syntax checking
+  - Quality gates to prevent merging broken code
+- **Enhanced Build System**: Improvements to the build process for better reliability and error reporting
+  - New `--validate` flag to check syntax of built tools
+  - Better error handling and exit codes in build script
+  - Improved logging for CI/CD environments
+- **Development Workflow Documentation**: Clear guidance for contributors on the new workflow
+  - Updated CONTRIBUTING.md with detailed build and test instructions
+  - New workflow documentation in docs/new_workflow.md
+  - Enhanced pre-commit hook setup instructions
+
+### Changed
+- **Pre-commit Configuration**: Added build validation hook to ensure code quality
+  - Local hook that builds and validates all tools
+  - Integrated with existing code formatting and linting hooks
+- **Test Runner Enhancements**: Improvements to testing for faster development feedback
+  - Enhanced `--fast` mode that runs only unit tests with reduced timeouts
+  - Better error reporting and debugging capabilities
+- **Documentation Updates**: Comprehensive updates to reflect new workflow
+  - Updated README with build process information
+  - Enhanced coding standards to include build compatibility requirements
+
+### Testing
+- **Cross-platform CI**: GitHub Actions workflow testing on Ubuntu, macOS, and Windows
+- **Multi-version Testing**: Tests across Python versions 3.7 through 3.12
+- **Comprehensive Coverage**: Unit, integration, and performance tests for both source and built tools
+- **Quality Gates**: Automated checks to prevent merging broken code
+
 ## [1.2.0-beta] - 2025-08-28
 
 ### Added

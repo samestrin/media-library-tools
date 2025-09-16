@@ -135,6 +135,35 @@ def process_script(script_path: Path, output_dir: Optional[Path] = None) -> bool
         return False
 
 
+def validate_built_script(script_path: Path) -> bool:
+    """
+    Validate that a built script is syntactically correct.
+    
+    Args:
+        script_path: Path to the built script to validate
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    if not script_path.exists():
+        print(f"Error: Built script not found for validation: {script_path}")
+        return False
+    
+    try:
+        # Try to compile the script to check for syntax errors
+        with open(script_path, 'r', encoding='utf-8') as f:
+            script_content = f.read()
+        
+        compile(script_content, str(script_path), 'exec')
+        return True
+    except SyntaxError as e:
+        print(f"Syntax error in built script {script_path}: {e}")
+        return False
+    except Exception as e:
+        print(f"Error validating built script {script_path}: {e}")
+        return False
+
+
 def find_scripts(search_paths: List[str]) -> List[Path]:
     """
     Find all script files in the given search paths.
@@ -219,7 +248,7 @@ def generate_build_summary(results: Dict[str, bool], start_time: float) -> None:
     print(f"{'='*60}")
 
 
-def build_all_tools(output_dir: Path, verbose: bool = False) -> Dict[str, bool]:
+def build_all_tools(output_dir: Path, verbose: bool = False, validate: bool = False) -> Dict[str, bool]:
     """Build all tools in the project automatically."""
     results = {}
     
@@ -234,7 +263,15 @@ def build_all_tools(output_dir: Path, verbose: bool = False) -> Dict[str, bool]:
                 script_name = f"{tool_dir}/{script.name}"
                 if verbose:
                     print(f"Building {script_name}...")
-                results[script_name] = process_script(script, output_dir)
+                success = process_script(script, output_dir)
+                results[script_name] = success
+                
+                # Validate the built script if requested
+                if success and validate:
+                    built_script_path = output_dir / script.name
+                    if not validate_built_script(built_script_path):
+                        print(f"Validation failed for {script_name}")
+                        results[script_name] = False
         else:
             if verbose:
                 print(f"Directory not found: {tool_dir}")
@@ -307,6 +344,12 @@ Standard tool directories: plex/, sabnzbd/, plex-api/
         help='Clean output directory before building'
     )
     
+    parser.add_argument(
+        '--validate',
+        action='store_true',
+        help='Validate built scripts for syntax errors'
+    )
+    
     args = parser.parse_args()
     
     # Setup logging
@@ -328,7 +371,7 @@ Standard tool directories: plex/, sabnzbd/, plex-api/
             logging.warning("--all flag specified, ignoring individual paths")
         
         logging.info("Building all tools in standard directories")
-        results = build_all_tools(args.output_dir, args.verbose)
+        results = build_all_tools(args.output_dir, args.verbose, args.validate)
         
         if not results:
             print("No scripts found to build in standard directories.")
@@ -358,7 +401,15 @@ Standard tool directories: plex/, sabnzbd/, plex-api/
             script_name = str(script)
             if args.verbose:
                 print(f"Building {script_name}...")
-            results[script_name] = process_script(script, args.output_dir)
+            success = process_script(script, args.output_dir)
+            results[script_name] = success
+            
+            # Validate the built script if requested
+            if success and args.validate:
+                built_script_path = args.output_dir / script.name
+                if not validate_built_script(built_script_path):
+                    print(f"Validation failed for {script_name}")
+                    results[script_name] = False
     
     # Generate summary
     generate_build_summary(results, start_time)

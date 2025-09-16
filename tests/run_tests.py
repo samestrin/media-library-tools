@@ -526,7 +526,7 @@ Examples:
     parser.add_argument('--debug', action='store_true',
                        help='Show debug information')
     parser.add_argument('--fast', action='store_true',
-                       help='Run tests with reduced timeouts')
+                       help='Run tests with reduced timeouts and selective testing')
     parser.add_argument('--no-cleanup', action='store_true',
                        help='Skip cleanup of test data')
     
@@ -622,9 +622,14 @@ Examples:
     
     # Adjust configuration for fast mode
     if args.fast:
+        # In fast mode, only run unit tests unless otherwise specified
+        if not args.categories and not args.pattern:
+            args.categories = ['unit']
+        
+        # Reduce timeouts for faster feedback
         for category in TEST_CATEGORIES.values():
-            category['timeout'] = min(category.get('timeout', 60), 60)
-        TEST_CONFIG['test_timeout'] = 60
+            category['timeout'] = min(category.get('timeout', 60), 30)
+        TEST_CONFIG['test_timeout'] = 30
     
     # Create and run test runner
     runner = TestRunner(args)
