@@ -47,6 +47,13 @@ jobs:
       run: |
         python build.py --all --clean --verbose --output-dir build_output
 
+    - name: Copy built tools to main directories
+      run: |
+        cp -r build_output/plex/* plex/
+        cp -r build_output/SABnzbd/* SABnzbd/
+        cp -r build_output/plex-api/* plex-api/
+        rm -rf build_output
+
     - name: Test source tools
       run: |
         python tests/run_tests.py --categories unit --verbose
