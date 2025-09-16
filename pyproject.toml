@@ -7,7 +7,7 @@ name = "media-library-tools"
 version = "1.0.0"
 description = "Self-contained Python CLI utilities for managing media libraries (Plex, SABnzbd, qBittorrent)"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 authors = [
     {name = "Sam Estrin", email = "sam@samestrin.com"}
 ]
@@ -18,7 +18,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",

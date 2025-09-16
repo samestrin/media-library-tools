@@ -35,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Testing
 - **Cross-platform CI**: GitHub Actions workflow testing on Ubuntu, macOS, and Windows
-- **Multi-version Testing**: Tests across Python versions 3.7 through 3.12
+- **Multi-version Testing**: Tests across Python versions 3.8 through 3.12
 - **Comprehensive Coverage**: Unit, integration, and performance tests for both source and built tools
 - **Quality Gates**: Automated checks to prevent merging broken code
 
