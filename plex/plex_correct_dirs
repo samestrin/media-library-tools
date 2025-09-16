@@ -305,10 +305,13 @@ def release_lock(lock_instance: FileLock) -> None:
 class PlexDirectoryCorrector:
     """Main class for correcting Plex directory names."""
 
-    def __init__(self, dry_run: bool = False, force: bool = False, max_items: int = 5):
+    def __init__(self, dry_run: bool = False, force: bool = False, max_items: int = 5,
+                 verbose: bool = False, debug: bool = False):
         self.dry_run = dry_run
         self.force = force
         self.max_items = max_items if dry_run else float('inf')
+        self.verbose = verbose
+        self.debug = debug
         self.processed_count = 0
         self.file_lock = FileLock('plex_correct_dirs')
 
@@ -385,6 +388,16 @@ class PlexDirectoryCorrector:
             # Leading/trailing whitespace and punctuation
             'trim': re.compile(r'^[\s\.\-_]+|[\s\.\-_]+$')
         }
+
+    def log_verbose(self, msg: str):
+        """Log verbose message."""
+        if self.verbose or self.debug:
+            print(f"[VERBOSE] {msg}", file=sys.stderr)
+
+    def log_debug(self, msg: str):
+        """Log debug message."""
+        if self.debug:
+            print(f"[DEBUG] {msg}", file=sys.stderr)
 
     def acquire_lock(self) -> bool:
         """Acquire file lock to prevent multiple instances."""
@@ -522,6 +535,12 @@ Examples:
   %(prog)s -y                                # Process current directory without confirmation
   %(prog)s /path/to/media -y                 # Process specific directory without confirmation
   %(prog)s --force                           # Force run in current directory (bypass lock)
+  %(prog)s --verbose                         # Show verbose output
+  %(prog)s --debug                           # Show detailed debug output
+
+Global Configuration:
+  Set AUTO_CONFIRM=true to skip confirmation prompts automatically
+  Set QUIET_MODE=true to suppress banner display
 
 Cron Usage:
   # Run daily at 2 AM (non-interactive)
@@ -552,6 +571,21 @@ Cron Usage:
         help='Force execution even if another instance is running'
     )
     parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Show verbose output'
+    )
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='Show detailed debug output'
+    )
+    parser.add_argument(
+        '--no-banner',
+        action='store_true',
+        help='Suppress banner display'
+    )
+    parser.add_argument(
         '--max-items',
         type=int,
         default=5,
@@ -565,6 +599,28 @@ Cron Usage:
 
     args = parser.parse_args()
 
+    # Handle debug mode
+    if args.debug:
+        args.verbose = True
+
+    # Read global configuration
+    auto_execute = read_global_config_bool('AUTO_EXECUTE', False)
+    auto_confirm = read_global_config_bool('AUTO_CONFIRM', False)
+    quiet_mode = read_global_config_bool('QUIET_MODE', False)
+
+    # Apply global configuration (CLI arguments take precedence)
+    if auto_confirm and not args.yes:
+        args.yes = True  # Set yes flag if AUTO_CONFIRM is set
+
+    # Display banner (respecting suppression flags)
+    display_banner(
+        "Plex Directory Name Corrector",
+        "2.1.0",
+        "Sanitize and organize Plex media directory names",
+        args.no_banner,
+        quiet_mode
+    )
+
     # Validate arguments
     if args.yes and args.dry_run:
         print("Warning: -y/--yes flag has no effect in dry-run mode", file=sys.stderr)
@@ -573,7 +629,9 @@ Cron Usage:
     corrector = PlexDirectoryCorrector(
         dry_run=args.dry_run,
         force=args.force,
-        max_items=args.max_items
+        max_items=args.max_items,
+        verbose=args.verbose,
+        debug=args.debug
     )
 
     try:

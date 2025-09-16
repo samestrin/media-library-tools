@@ -656,7 +656,7 @@ Cron Usage:
         help="Force execution even if another instance is running"
     )
     parser.add_argument(
-        "--verbose", 
+        "--verbose", "-v", 
         action="store_true", 
         help="Enable verbose output for debugging"
     )
