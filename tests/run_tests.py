@@ -363,7 +363,9 @@ class TestRunner:
                 # Show test output for debugging
                 if result.output and result.output.strip():
                     print("   Test output:")
-                    for line in result.output.strip().split('\n')[-10:]:  # Show last 10 lines
+                    for line in result.output.strip().split("\n")[
+                        -10:
+                    ]:  # Show last 10 lines
                         print(f"     {line}")
 
         return category_results
@@ -459,7 +461,7 @@ class TestRunner:
                     # Show full test output for failed tests
                     if result.output and result.output.strip():
                         print("    Full output:")
-                        for line in result.output.strip().split('\n'):
+                        for line in result.output.strip().split("\n"):
                             print(f"      {line}")
                         print()
 
