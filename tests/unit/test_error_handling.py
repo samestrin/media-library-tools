@@ -34,7 +34,9 @@ def load_sabnzbd_tool(tool_name):
             return None
 
         # Copy to temp file with .py extension
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as temp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".py", delete=False
+        ) as temp_file:
             temp_file_name = temp_file.name
             with open(tool_path) as f:
                 temp_file.write(f.read())
@@ -60,7 +62,9 @@ def load_plex_tool(tool_name):
             return None
 
         # Copy to temp file with .py extension
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as temp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".py", delete=False
+        ) as temp_file:
             temp_file_name = temp_file.name
             with open(tool_path) as f:
                 temp_file.write(f.read())

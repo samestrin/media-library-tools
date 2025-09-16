@@ -882,7 +882,7 @@ class TestIntegrationWorkflow(MediaLibraryTestCase):
                     }
                 },
                 2: None,  # Analyze fails
-                3: "",    # Refresh succeeds
+                3: "",  # Refresh succeeds
             }
             return responses.get(call_count, {})  # Other calls succeed
 

@@ -41,7 +41,9 @@ def load_tool(tool_category, tool_name):
             return None
 
         # Copy to temp file with .py extension
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as temp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".py", delete=False
+        ) as temp_file:
             with open(tool_path) as f:
                 temp_file.write(f.read())
             temp_file_name = temp_file.name
@@ -168,6 +170,7 @@ class TestFileSystemErrorScenarios(MediaLibraryTestCase):
 
             # Should handle readonly directory
             from contextlib import suppress
+
             with suppress(PermissionError):
                 detector.analyze_directory(readonly_dir)  # Expected
 

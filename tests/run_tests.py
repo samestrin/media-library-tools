@@ -751,8 +751,11 @@ Examples:
                 )
 
         # Cleanup if requested
-        if (not args.no_cleanup and TEST_CONFIG.get("cleanup_on_success", True) and
-                all(r.is_successful for r in runner.results)):
+        if (
+            not args.no_cleanup
+            and TEST_CONFIG.get("cleanup_on_success", True)
+            and all(r.is_successful for r in runner.results)
+        ):
             if not args.quiet:
                 print("\n🧹 Cleaning up test data...")
             cleanup_test_environment()

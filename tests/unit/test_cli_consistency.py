@@ -292,9 +292,7 @@ class TestGlobalConfigurationSupport(CLIConsistencyTestCase):
 
                 # Should show evidence of execute mode or non-dry-run behavior
                 execute_indicators = ["execute", "changes will be made", "proceeding"]
-                any(
-                    indicator in output.lower() for indicator in execute_indicators
-                )
+                any(indicator in output.lower() for indicator in execute_indicators)
 
                 # At minimum, AUTO_EXECUTE should not cause the tool to fail with config errors
                 if result.returncode != 0:

@@ -40,7 +40,9 @@ def load_tool(tool_category, tool_name):
             return None
 
         # Copy to temp file with .py extension
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as temp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".py", delete=False
+        ) as temp_file:
             with open(tool_path) as f:
                 temp_file.write(f.read())
             temp_file_name = temp_file.name
@@ -489,9 +491,7 @@ class TestBatchTVShowOperations(MediaLibraryTestCase):
         # Verify each movie has the expected number of extras
         for show_name, _show_info in shows_data.items():
             show_dir = batch_all_seasons_dir / show_name
-            [
-                f for f in show_dir.glob("*.*") if f.name != f"{show_name}.mkv"
-            ]
+            [f for f in show_dir.glob("*.*") if f.name != f"{show_name}.mkv"]
 
             # Note: This test is checking for episodes, not extras, so we'll verify episodes
             show_episodes = [

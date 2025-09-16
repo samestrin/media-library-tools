@@ -259,8 +259,9 @@ def mock_non_interactive(return_value: bool = True):
 
     def decorator(func):
         def wrapper(*args, **kwargs):
-            with patch("builtins.input", return_value="y"), \
-                 patch("sys.stdin.isatty", return_value=not return_value):
+            with patch("builtins.input", return_value="y"), patch(
+                "sys.stdin.isatty", return_value=not return_value
+            ):
                 return func(*args, **kwargs)
 
         return wrapper

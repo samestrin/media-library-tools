@@ -40,7 +40,9 @@ def load_tool(tool_category, tool_name):
             return None
 
         # Copy to temp file with .py extension
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as temp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".py", delete=False
+        ) as temp_file:
             with open(tool_path) as f:
                 temp_file.write(f.read())
             temp_file_name = temp_file.name
@@ -421,6 +423,7 @@ class TestErrorRecoveryWorkflow(MediaLibraryTestCase):
             # Should handle restricted directory gracefully
             detector = SABnzbdDetector()
             from contextlib import suppress
+
             with suppress(PermissionError):
                 # This is expected and acceptable
                 detector.analyze_directory(restricted_dir)
@@ -453,6 +456,7 @@ class TestErrorRecoveryWorkflow(MediaLibraryTestCase):
 
         # Should handle network path without crashing
         from contextlib import suppress
+
         with suppress(OSError, ValueError):
             # These exceptions are acceptable for network issues
             renamer.is_video_file(network_path)
