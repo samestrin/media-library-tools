@@ -47,7 +47,7 @@ class CLIConsistencyTestCase(unittest.TestCase):
     def setUpClass(cls):
         """Set up test environment."""
         cls.project_root = Path(__file__).parent.parent.parent
-        
+
         # Ensure all tools are built and in their main directories
         cls.build_all_tools()
 
@@ -55,10 +55,16 @@ class CLIConsistencyTestCase(unittest.TestCase):
     def build_all_tools(cls):
         """Build all tools using the new workflow approach."""
         build_script = cls.project_root / "build.py"
-        
+
         # Build tools to build_output directory
         result = subprocess.run(
-            [sys.executable, str(build_script), "--all", "--output-dir", "build_output"],
+            [
+                sys.executable,
+                str(build_script),
+                "--all",
+                "--output-dir",
+                "build_output",
+            ],
             capture_output=True,
             text=True,
             cwd=cls.project_root,
@@ -66,17 +72,18 @@ class CLIConsistencyTestCase(unittest.TestCase):
 
         if result.returncode != 0:
             raise RuntimeError(f"Failed to build tools: {result.stderr}")
-        
+
         # Copy tools to main directories (mimicking CI workflow)
         import shutil
+
         build_output = cls.project_root / "build_output"
-        
+
         if build_output.exists():
             # Copy from build_output subdirectories to main directories
             for subdir in ["plex", "SABnzbd", "plex-api"]:
                 src_dir = build_output / subdir
                 dest_dir = cls.project_root / subdir
-                
+
                 if src_dir.exists():
                     # Copy all files from src to dest
                     for item in src_dir.iterdir():
@@ -85,7 +92,7 @@ class CLIConsistencyTestCase(unittest.TestCase):
                             shutil.copy2(item, dest_file)
                             # Make executable
                             dest_file.chmod(0o755)
-            
+
             # Clean up build_output
             shutil.rmtree(build_output)
 
@@ -97,7 +104,7 @@ class CLIConsistencyTestCase(unittest.TestCase):
         tool_dir = self.TOOL_DIRECTORIES.get(tool_name)
         if not tool_dir:
             self.fail(f"Unknown tool: {tool_name}")
-        
+
         tool_path = self.project_root / tool_dir / tool_name
         if not tool_path.exists():
             self.fail(f"Tool not found: {tool_path}")

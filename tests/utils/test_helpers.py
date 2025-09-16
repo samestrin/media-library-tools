@@ -474,7 +474,10 @@ def run_tool_with_args(tool_name: str, args: List[str]) -> tuple:
 
     try:
         result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=30  # 30 second timeout
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=30,  # 30 second timeout
         )
         return result.stdout, result.stderr, result.returncode
     except subprocess.TimeoutExpired:

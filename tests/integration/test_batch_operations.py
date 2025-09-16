@@ -642,7 +642,7 @@ class TestBatchPerformanceOperations(MediaLibraryTestCase):
         print(f"Files created: {num_files} in {creation_time:.3f}s")
         print(f"Files processed: {len(processed_files)} in {processing_time:.3f}s")
         print(
-            f"Processing rate: {len(processed_files)/processing_time:.1f} files/second"
+            f"Processing rate: {len(processed_files) / processing_time:.1f} files/second"
         )
 
     @unittest.skipIf(

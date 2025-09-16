@@ -48,7 +48,7 @@ def create_comprehensive_test_structure(base_path, count):
                 if j == 0:
                     (dir_path / "archive.rar").touch()
                 else:
-                    (dir_path / f"archive.r{j-1:02d}").touch()
+                    (dir_path / f"archive.r{j - 1:02d}").touch()
 
         # Admin files (20% chance)
         if i % 5 == 0:

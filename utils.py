@@ -224,9 +224,18 @@ class FileLock:
         """
         if self.lock_file:
             try:
-                fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
-                self.lock_file.close()
-                os.unlink(self.lock_file.name)
+                # Only unlock if file is still open
+                if not self.lock_file.closed:
+                    fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
+                    self.lock_file.close()
+            except (OSError, ValueError):
+                # Handle both file system errors and closed file errors
+                pass
+
+            # Always try to remove lock file if it exists
+            try:
+                if os.path.exists(self.lock_file.name):
+                    os.unlink(self.lock_file.name)
             except OSError:
                 pass
             finally:

@@ -1,0 +1,326 @@
+#!/usr/bin/env python3
+"""
+[Script Name] - [Brief Description]
+
+Version: 1.0.0
+Purpose: [Detailed description of what the script does]
+
+This script is part of the Media Library Tools collection and follows
+the standardized CLI and global configuration patterns.
+
+Author: Media Library Tools Project
+License: MIT
+"""
+
+import os
+import sys
+import argparse
+import tempfile
+import fcntl
+from pathlib import Path
+from typing import List, Dict, Optional, Tuple
+
+VERSION = "1.0.0"
+
+
+def read_global_config_bool(var_name: str, default: bool = False) -> bool:
+    """Read a boolean environment variable with support for .env files.
+    
+    Args:
+        var_name: Name of the environment variable
+        default: Default value if not found
+        
+    Returns:
+        Boolean value of the environment variable
+    """
+    # Check environment variable directly
+    value = os.environ.get(var_name)
+    if value is not None:
+        return value.lower() in ('true', '1', 'yes', 'on')
+    
+    # Check local .env file
+    env_file = '.env'
+    if os.path.exists(env_file):
+        try:
+            with open(env_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith(f'{var_name}='):
+                        value = line.split('=', 1)[1].strip()
+                        return value.lower() in ('true', '1', 'yes', 'on')
+        except (IOError, OSError):
+            pass
+    
+    # Check global .env file
+    global_env_path = Path.home() / '.media-library-tools' / '.env'
+    if global_env_path.exists():
+        try:
+            with open(global_env_path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith(f'{var_name}='):
+                        value = line.split('=', 1)[1].strip()
+                        return value.lower() in ('true', '1', 'yes', 'on')
+        except (IOError, OSError):
+            pass
+    
+    return default
+
+
+def is_non_interactive() -> bool:
+    """
+    Detect if we're running in a non-interactive environment (e.g., cron job).
+    
+    Returns:
+        bool: True if running non-interactively, False otherwise
+    """
+    # Check if stdin is not a TTY (common in cron jobs)
+    if not sys.stdin.isatty():
+        return True
+    
+    # Check common environment variables that indicate automation
+    automation_vars = ['CRON', 'CI', 'AUTOMATED', 'NON_INTERACTIVE']
+    for var in automation_vars:
+        if os.environ.get(var):
+            return True
+    
+    # Check if TERM is not set (common in cron)
+    if not os.environ.get('TERM'):
+        return True
+    
+    return False
+
+
+def display_banner(script_name: str, version: str, description: str, 
+                  no_banner_flag: bool = False, quiet_mode: bool = False) -> None:
+    """Display standardized banner for media library tools."""
+    if no_banner_flag or quiet_mode or is_non_interactive():
+        return
+    
+    try:
+        print("┏┳┓┏━╸╺┳┓╻┏━┓╻  ╻┏┓ ┏━┓┏━┓┏━┓╻ ╻╺┳╸┏━┓┏━┓╻  ┏━┓")
+        print("┃┃┃┣╸  ┃┃┃┣━┫┃  ┃┣┻┓┣┳┛┣━┫┣┳┛┗┳┛ ┃ ┃ ┃┃ ┃┃  ┗━┓")
+        print("╹ ╹┗━╸╺┻┛╹╹ ╹┗━╸╹┗━┛╹┗╸╹ ╹╹┗╸ ╹  ╹ ┗━┛┗━┛┗━╸┗━┛")
+        print(f"{script_name} v{version}: {description}")
+        print()  # Blank line for separation
+    except Exception:
+        pass
+
+
+class ScriptClass:
+    """Main class for script functionality."""
+    
+    def __init__(self, directory: str, verbose: bool = False, debug: bool = False):
+        self.directory = Path(directory)
+        self.verbose = verbose
+        self.debug = debug
+        self.lock_file = None
+        self.lock_fd = None
+    
+    def log_verbose(self, msg: str):
+        """Log verbose message if verbose or debug mode is enabled."""
+        if self.verbose or self.debug:
+            print(f"[VERBOSE] {msg}", file=sys.stderr)
+    
+    def log_debug(self, msg: str):
+        """Log debug message if debug mode is enabled."""
+        if self.debug:
+            print(f"[DEBUG] {msg}", file=sys.stderr)
+    
+    def acquire_lock(self) -> bool:
+        """Acquire exclusive lock for this script."""
+        try:
+            lock_dir = Path(tempfile.gettempdir()) / 'media-library-tools'
+            lock_dir.mkdir(exist_ok=True)
+            
+            self.lock_file = lock_dir / f'{self.__class__.__name__.lower()}.lock'
+            self.lock_fd = open(self.lock_file, 'w')
+            
+            fcntl.flock(self.lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self.lock_fd.write(f'{os.getpid()}\n')
+            self.lock_fd.flush()
+            
+            return True
+        except (IOError, OSError) as e:
+            if self.lock_fd:
+                self.lock_fd.close()
+            print(f"Error: Another instance is already running. {e}")
+            return False
+    
+    def release_lock(self):
+        """Release the exclusive lock."""
+        if self.lock_fd:
+            try:
+                fcntl.flock(self.lock_fd.fileno(), fcntl.LOCK_UN)
+                self.lock_fd.close()
+            except Exception:
+                pass
+        
+        if self.lock_file and self.lock_file.exists():
+            try:
+                self.lock_file.unlink()
+            except Exception:
+                pass
+    
+    def run(self, dry_run: bool = True) -> bool:
+        """Main execution method."""
+        try:
+            # Acquire lock
+            if not self.acquire_lock():
+                return False
+            
+            # Main logic goes here
+            self.log_verbose(f"Processing directory: {self.directory}")
+            
+            if dry_run:
+                print("DRY-RUN MODE: No changes will be made")
+                # Perform dry-run logic
+            else:
+                print("EXECUTE MODE: Changes will be made")
+                # Perform actual operations
+            
+            return True
+            
+        except KeyboardInterrupt:
+            print("\nOperation cancelled by user.")
+            return False
+        except Exception as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return False
+        finally:
+            self.release_lock()
+
+
+def main():
+    """Main entry point."""
+    parser = argparse.ArgumentParser(
+        description="[Script description]",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s                              # Process current directory (dry-run)
+  %(prog)s /path/to/media               # Process specific directory (dry-run)
+  %(prog)s --execute /path/to/media     # Actually perform operations
+  %(prog)s --verbose /path/to/media     # Show verbose output
+  %(prog)s --debug /path/to/media       # Show debug output
+  %(prog)s --no-banner /path/to/media   # Suppress banner display
+  %(prog)s -y --execute /path/to/media  # Skip confirmation prompts
+
+Global Configuration:
+  Set AUTO_EXECUTE=true to enable execute mode by default
+  Set AUTO_CONFIRM=true to skip confirmation prompts automatically
+  Set QUIET_MODE=true to suppress banner display
+
+Cron Usage:
+  # Run daily at 3 AM (non-interactive)
+  0 3 * * * /usr/local/bin/script_name /path/to/target --execute -y
+        """
+    )
+    
+    # Core functionality arguments
+    parser.add_argument('directory', nargs='?', default='.',
+                       help='Directory to process (default: current directory)')
+    parser.add_argument('--dry-run', action='store_true', default=True,
+                       help='Preview changes without executing (default behavior)')
+    parser.add_argument('--execute', action='store_true',
+                       help='Actually perform operations (overrides --dry-run)')
+    
+    # Output control arguments
+    parser.add_argument('--verbose', '-v', action='store_true',
+                       help='Show verbose output')
+    parser.add_argument('--debug', action='store_true',
+                       help='Show detailed debug output')
+    parser.add_argument('--no-banner', action='store_true',
+                       help='Suppress banner display')
+    
+    # Automation support arguments
+    parser.add_argument('-y', '--yes', action='store_true',
+                       help='Skip confirmation prompt (for non-interactive use)')
+    parser.add_argument('--force', action='store_true',
+                       help='Force execution even if another instance is running')
+    
+    # Version info
+    parser.add_argument('--version', action='version',
+                       version=f'%(prog)s v{VERSION}')
+    
+    args = parser.parse_args()
+    
+    # Handle debug mode
+    if args.debug:
+        args.verbose = True
+    
+    # Read global configuration
+    auto_execute = read_global_config_bool('AUTO_EXECUTE', False)
+    auto_confirm = read_global_config_bool('AUTO_CONFIRM', False)
+    quiet_mode = read_global_config_bool('QUIET_MODE', False)
+    
+    # Apply global configuration (CLI arguments take precedence)
+    if auto_execute and not args.execute:
+        args.execute = True
+    if auto_confirm and not args.yes:
+        args.yes = True
+    
+    # Determine execution mode
+    if args.execute:
+        dry_run_mode = False
+    else:
+        dry_run_mode = args.dry_run  # True by default
+    
+    # Validate arguments
+    if args.yes and args.dry_run:
+        print("Warning: -y/--yes flag has no effect in dry-run mode", file=sys.stderr)
+    
+    # Display banner
+    display_banner("[Script Name]", VERSION, "[Brief description]", 
+                   args.no_banner, quiet_mode)
+    
+    try:
+        # Validate directory
+        directory_path = Path(args.directory)
+        if not directory_path.exists():
+            print(f"Error: Directory does not exist: {directory_path}", file=sys.stderr)
+            sys.exit(1)
+        
+        if not directory_path.is_dir():
+            print(f"Error: Path is not a directory: {directory_path}", file=sys.stderr)
+            sys.exit(1)
+        
+        # Create script instance
+        script = ScriptClass(
+            directory=str(directory_path),
+            verbose=args.verbose,
+            debug=args.debug
+        )
+        
+        # Confirmation logic for non-interactive environments
+        if not dry_run_mode:
+            if not args.yes and not is_non_interactive():
+                # Show interactive confirmation prompt
+                response = input("\nProceed with operation? [y/N]: ")
+                if response.lower() not in ['y', 'yes']:
+                    print("Operation cancelled.")
+                    sys.exit(0)
+            elif args.yes or is_non_interactive():
+                # Provide feedback for automated execution
+                print("Proceeding with operation...")
+        
+        # Run the script
+        success = script.run(dry_run=dry_run_mode)
+        
+        if success:
+            print("\nOperation completed successfully.")
+            sys.exit(0)
+        else:
+            print("\nOperation failed.")
+            sys.exit(1)
+            
+    except KeyboardInterrupt:
+        print("\nOperation cancelled by user.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()

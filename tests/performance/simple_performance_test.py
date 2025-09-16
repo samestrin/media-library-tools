@@ -78,8 +78,8 @@ def main():
             # Report results
             print("  Results:")
             print(f"    Elapsed time: {elapsed:.4f} seconds")
-            print(f"    Time per directory: {elapsed/size:.6f} seconds")
-            print(f"    Directories per second: {size/elapsed:.1f}")
+            print(f"    Time per directory: {elapsed / size:.6f} seconds")
+            print(f"    Directories per second: {size / elapsed:.1f}")
             print(f"    Return code: {returncode}")
 
             # Extract found directories from output

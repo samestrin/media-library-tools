@@ -446,7 +446,6 @@ def find_scripts(search_paths: List[str]) -> List[Path]:
                     and script_path.suffix == ""  # Extensionless files
                     and script_path.name not in ["build.py", "utils.py"]
                 ):  # Exclude build system files
-
                     # Basic check if it's a Python script
                     try:
                         with open(script_path, encoding="utf-8") as f:
@@ -477,13 +476,13 @@ def generate_build_summary(results: Dict[str, bool], start_time: float) -> None:
     success_count = sum(1 for success in results.values() if success)
     total_count = len(results)
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("BUILD SUMMARY")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Total scripts processed: {total_count}")
     print(f"Successfully built: {success_count}")
     print(f"Failed: {total_count - success_count}")
-    print(f"Success rate: {(success_count/total_count)*100:.1f}%")
+    print(f"Success rate: {(success_count / total_count) * 100:.1f}%")
     print(f"Total build time: {total_time:.2f} seconds")
 
     if success_count < total_count:
@@ -498,7 +497,7 @@ def generate_build_summary(results: Dict[str, bool], start_time: float) -> None:
             if success:
                 print(f"  ✅ {script}")
 
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
 
 def build_all_tools(
@@ -677,7 +676,8 @@ Output directories: plex/, SABnzbd/, plex-api/
     else:
         # Build specified paths or default behavior
         if not args.paths:
-            args.paths = ["."]
+            # Default to src/ directories only, not entire project
+            args.paths = ["src/plex", "src/SABnzbd", "src/plex-api"]
 
         # Find scripts to build
         scripts = find_scripts(args.paths)
