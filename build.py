@@ -510,8 +510,14 @@ def build_all_tools(
     """Build all tools in the project automatically."""
     results = {}
 
-    # Define standard tool directories
-    tool_dirs = ["plex", "SABnzbd", "plex-api"]
+    # Define standard tool directories in src/
+    tool_dirs = ["src/plex", "src/SABnzbd", "src/plex-api"]
+    # Map source directories to output directories
+    output_mapping = {
+        "src/plex": "plex",
+        "src/SABnzbd": "SABnzbd",
+        "src/plex-api": "plex-api"
+    }
 
     # Count total scripts for progress indication
     total_scripts = 0
@@ -522,25 +528,28 @@ def build_all_tools(
             scripts = find_scripts([str(tool_path)])
             for script in scripts:
                 script_name = f"{tool_dir}/{script.name}"
-                all_scripts.append((script, script_name))
+                # Determine output directory for this script
+                output_subdir = output_mapping[tool_dir]
+                target_output_dir = Path(output_subdir) if output_dir == Path(".") else output_dir / output_subdir
+                all_scripts.append((script, script_name, target_output_dir))
                 total_scripts += 1
 
     if verbose and total_scripts > 1:
         print(f"Building {total_scripts} tools...")
 
     # Process each script with progress indication
-    for i, (script, script_name) in enumerate(all_scripts, 1):
+    for i, (script, script_name, target_output_dir) in enumerate(all_scripts, 1):
         if verbose and total_scripts > 1:
             print(f"[{i}/{total_scripts}] Building {script_name}...")
         elif verbose:
             print(f"Building {script_name}...")
 
-        success = process_script(script, output_dir, force_rebuild)
+        success = process_script(script, target_output_dir, force_rebuild)
         results[script_name] = success
 
         # Validate the built script if requested
         if success and validate:
-            built_script_path = output_dir / script.name
+            built_script_path = target_output_dir / script.name
             if not validate_built_script(built_script_path):
                 print(f"Validation failed for {script_name}")
                 results[script_name] = False
@@ -566,7 +575,8 @@ The build script looks for the marker '# {{include utils.py}}' in source scripts
 and replaces it with the content of utils.py surrounded by comment blocks.
 Scripts without the marker are copied as-is.
 
-Standard tool directories: plex/, sabnzbd/, plex-api/
+Source directories: src/plex/, src/SABnzbd/, src/plex-api/
+Output directories: plex/, SABnzbd/, plex-api/
         """,
     )
 
@@ -580,14 +590,14 @@ Standard tool directories: plex/, sabnzbd/, plex-api/
         "-o",
         "--output-dir",
         type=Path,
-        default=Path("build"),
-        help="Output directory for built scripts (default: build/)",
+        default=Path("."),
+        help="Output directory for built scripts (default: current directory - builds into main folders)",
     )
 
     parser.add_argument(
         "--all",
         action="store_true",
-        help="Build all tools in standard directories (plex/, sabnzbd/, plex-api/)",
+        help="Build all tools from src/ directories into main directories (plex/, SABnzbd/, plex-api/)",
     )
 
     parser.add_argument("--log-file", type=Path, help="Log file for build process")
@@ -637,7 +647,7 @@ Standard tool directories: plex/, sabnzbd/, plex-api/
         if args.paths:
             logging.warning("--all flag specified, ignoring individual paths")
 
-        logging.info("Building all tools in standard directories")
+        logging.info("Building all tools from src/ directories into main directories")
         results = build_all_tools(
             args.output_dir, args.verbose, args.validate, args.force_rebuild
         )
