@@ -29,6 +29,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
+VERSION = "2.1.0"
 
 # ======================================================
 # INJECTED SHARED UTILITIES - START
@@ -904,7 +905,7 @@ Cron Usage:
     parser.add_argument(
         '--version',
         action='version',
-        version='%(prog)s 2.1.0'
+        version=f'%(prog)s v{VERSION}'
     )
     
     args = parser.parse_args()
