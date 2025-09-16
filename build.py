@@ -516,7 +516,7 @@ def build_all_tools(
     output_mapping = {
         "src/plex": "plex",
         "src/SABnzbd": "SABnzbd",
-        "src/plex-api": "plex-api"
+        "src/plex-api": "plex-api",
     }
 
     # Count total scripts for progress indication
@@ -530,7 +530,11 @@ def build_all_tools(
                 script_name = f"{tool_dir}/{script.name}"
                 # Determine output directory for this script
                 output_subdir = output_mapping[tool_dir]
-                target_output_dir = Path(output_subdir) if output_dir == Path(".") else output_dir / output_subdir
+                target_output_dir = (
+                    Path(output_subdir)
+                    if output_dir == Path(".")
+                    else output_dir / output_subdir
+                )
                 all_scripts.append((script, script_name, target_output_dir))
                 total_scripts += 1
 
