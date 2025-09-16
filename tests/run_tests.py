@@ -359,10 +359,10 @@ class TestRunner:
                 # Show all error details immediately for failed tests
                 for error in result.error_details:
                     print(f"   {error}")
-                
+
                 # Show test output for debugging
                 if result.output and result.output.strip():
-                    print(f"   Test output:")
+                    print("   Test output:")
                     for line in result.output.strip().split('\n')[-10:]:  # Show last 10 lines
                         print(f"     {line}")
 
@@ -455,10 +455,10 @@ class TestRunner:
                     if result.error_details:
                         for error in result.error_details:
                             print(f"    - {error}")
-                    
+
                     # Show full test output for failed tests
                     if result.output and result.output.strip():
-                        print(f"    Full output:")
+                        print("    Full output:")
                         for line in result.output.strip().split('\n'):
                             print(f"      {line}")
                         print()
