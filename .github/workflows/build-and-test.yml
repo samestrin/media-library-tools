@@ -45,7 +45,7 @@ jobs:
 
     - name: Build tools
       run: |
-        python build.py --all --clean --verbose
+        python build.py --all --clean --verbose --output-dir build_output
 
     - name: Test source tools
       run: |
