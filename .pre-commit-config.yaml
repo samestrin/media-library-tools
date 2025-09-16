@@ -93,9 +93,9 @@ repos:
   # Local hooks for Media Library Tools
   - repo: local
     hooks:
-      - id: build-tools
-        name: Build and Validate Media Library Tools
-        entry: python build.py --all --clean --validate
+      - id: selective-build-validation
+        name: Selective Build and Validation
+        entry: python planning/sprints/active/3.0_build_commit_automation/artifacts/selective_validation_hook.py
         language: system
         pass_filenames: false
         always_run: true
