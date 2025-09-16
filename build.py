@@ -214,7 +214,7 @@ def process_script(
     if output_dir is None:
         output_dir = Path("build")
 
-    output_dir.mkdir(exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / script_path.name
 
     # Check if rebuild is needed (unless forced)
@@ -639,6 +639,16 @@ Output directories: plex/, SABnzbd/, plex-api/
     # Clean output directory if requested
     if args.clean and args.output_dir.exists():
         import shutil
+        
+        # Safety check: don't clean current directory or project root
+        current_dir = Path(".").resolve()
+        project_root = Path(__file__).parent.resolve()
+        output_dir_resolved = args.output_dir.resolve()
+        
+        if output_dir_resolved == current_dir or output_dir_resolved == project_root:
+            logging.error(f"Cannot clean current directory or project root: {args.output_dir}")
+            logging.error("Use a specific output directory with --output-dir for cleaning")
+            return 1
 
         shutil.rmtree(args.output_dir)
         logging.info(f"Cleaned output directory: {args.output_dir}")
