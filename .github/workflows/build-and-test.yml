@@ -49,10 +49,10 @@ jobs:
 
     - name: Copy built tools to main directories
       run: |
-        cp -r build_output/plex/* plex/
-        cp -r build_output/SABnzbd/* SABnzbd/
-        cp -r build_output/plex-api/* plex-api/
-        rm -rf build_output
+        python -c "import shutil; shutil.copytree('build_output/plex', 'plex', dirs_exist_ok=True)"
+        python -c "import shutil; shutil.copytree('build_output/SABnzbd', 'SABnzbd', dirs_exist_ok=True)"
+        python -c "import shutil; shutil.copytree('build_output/plex-api', 'plex-api', dirs_exist_ok=True)"
+        python -c "import shutil; shutil.rmtree('build_output', ignore_errors=True)"
 
     - name: Test source tools
       run: |
