@@ -16,9 +16,9 @@ Author: Media Library Tools Project
 Version: 1.0.0
 """
 
+import sys
 import warnings
 from pathlib import Path
-import sys
 
 # Add lib directory to path for imports
 lib_path = Path(__file__).parent / "lib"
@@ -28,32 +28,35 @@ if str(lib_path) not in sys.path:
 # Import all functions from modular libraries
 try:
     from core import (
-        is_non_interactive,
-        read_global_config_bool,
-        is_windows,
-        should_use_emojis,
         FileLock,
         acquire_lock,
+        is_non_interactive,
+        is_windows,
+        read_global_config_bool,
         release_lock,
-    )
-    from ui import (
-        display_banner,
-        format_size,
-        confirm_action,
-        format_status_message,
+        should_use_emojis,
     )
     from filesystem import (
         get_directory_size,
         validate_directory_path,
+    )
+    from ui import (
+        confirm_action,
+        display_banner,
+        format_size,
+        format_status_message,
     )
     from validation import (
         validate_path_argument,
     )
 except ImportError as e:
     # Fallback warning if lib modules are not available
-    warnings.warn(f"Could not import from lib modules: {e}. Using legacy implementations.", 
-                  DeprecationWarning, stacklevel=2)
-    
+    warnings.warn(
+        f"Could not import from lib modules: {e}. Using legacy implementations.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
     # Keep legacy implementations as fallback
     import contextlib
     import os
@@ -267,13 +270,18 @@ except ImportError as e:
 
             try:
                 with tempfile.NamedTemporaryFile(
-                    mode="w", prefix=f"{self.lock_prefix}_", suffix=".lock", delete=False
+                    mode="w",
+                    prefix=f"{self.lock_prefix}_",
+                    suffix=".lock",
+                    delete=False,
                 ) as temp_file:
                     self.lock_file = temp_file
 
                     # Platform-specific file locking
                     if fcntl is not None:  # Unix/Linux/macOS
-                        fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        fcntl.flock(
+                            self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB
+                        )
                     elif msvcrt is not None:  # Windows
                         msvcrt.locking(self.lock_file.fileno(), msvcrt.LK_NBLCK, 1)
                     else:
@@ -378,14 +386,14 @@ except ImportError as e:
         """Legacy fallback for directory size calculation."""
         total_size = 0
         try:
-            for dirpath, dirnames, filenames in os.walk(path):
+            for dirpath, _dirnames, filenames in os.walk(path):
                 for filename in filenames:
                     filepath = os.path.join(dirpath, filename)
                     try:
                         total_size += os.path.getsize(filepath)
-                    except (OSError, IOError):
+                    except OSError:
                         continue
-        except (OSError, IOError):
+        except OSError:
             pass
         return total_size
 
@@ -393,15 +401,15 @@ except ImportError as e:
         """Legacy fallback for directory path validation."""
         if not path:
             return False, "Path cannot be empty"
-        
+
         path_obj = Path(path)
-        
+
         if not path_obj.exists():
             return False, f"Path does not exist: {path}"
-        
+
         if not path_obj.is_dir():
             return False, f"Path is not a directory: {path}"
-        
+
         return True, ""
 
     def validate_path_argument(path: str) -> Tuple[bool, str]:
