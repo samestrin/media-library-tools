@@ -13,6 +13,21 @@ in built tools while maintaining the self-contained principle.
 """
 
 import sys
+from pathlib import Path
+
+# Import dependencies from core module
+try:
+    from core import is_non_interactive, should_use_emojis
+except ImportError:
+    # Fallback for when core module is not available
+    # This happens when modules are injected together during build
+    def is_non_interactive():
+        """Fallback implementation - will be overridden by injected core module"""
+        return not sys.stdin.isatty()
+    
+    def should_use_emojis():
+        """Fallback implementation - will be overridden by injected core module"""
+        return sys.platform != "win32" and not is_non_interactive()
 
 
 def display_banner(
@@ -33,7 +48,6 @@ def display_banner(
         quiet_mode: If True, suppress banner display
     """
     # Check suppression conditions (highest to lowest priority)
-    # Note: is_non_interactive() is available from the injected core module
     if no_banner_flag or quiet_mode or is_non_interactive():
         return
 
@@ -105,7 +119,6 @@ def format_status_message(
     Returns:
         Formatted message string
     """
-    # Note: should_use_emojis() is available from the injected core module
     if emoji and should_use_emojis():
         return f"{emoji} {message}"
     elif fallback_prefix:

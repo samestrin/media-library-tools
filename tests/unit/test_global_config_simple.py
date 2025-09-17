@@ -71,6 +71,12 @@ class TestGlobalConfigSimple(unittest.TestCase):
             namespace = {"__file__": str(script_path)}
 
             # Add necessary imports that the script might need
+            # Handle fcntl import with Windows compatibility
+            try:
+                import fcntl
+            except ImportError:
+                fcntl = None  # Windows compatibility
+            
             namespace.update(
                 {
                     "os": os,
@@ -79,7 +85,7 @@ class TestGlobalConfigSimple(unittest.TestCase):
                     "argparse": __import__("argparse"),
                     "shutil": __import__("shutil"),
                     "tempfile": __import__("tempfile"),
-                    "fcntl": __import__("fcntl"),
+                    "fcntl": fcntl,
                     "re": __import__("re"),
                 }
             )

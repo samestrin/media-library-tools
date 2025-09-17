@@ -55,91 +55,12 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
-from utils import should_use_emojis
+from utils import should_use_emojis, display_banner, is_non_interactive, format_status_message
 
 VERSION = "3.0.0"
 MARKER = "# {{include utils.py}}"
 UTILS_FILE = "utils.py"
 MODULE_MARKER_PATTERN = r"# \{\{include (lib/[\w\.]+)\}\}"  # Pattern for lib includes
-
-
-# Utility functions from utils.py for banner display
-def display_banner(
-    script_name: str,
-    version: str,
-    description: str,
-    no_banner_flag: bool = False,
-    quiet_mode: bool = False,
-) -> None:
-    """
-    Display standardized banner for media library tools.
-
-    Args:
-        script_name: Name of the script
-        version: Version string
-        description: Brief description of the script
-        no_banner_flag: If True, suppress banner display
-        quiet_mode: If True, suppress banner display
-    """
-    # Check suppression conditions (highest to lowest priority)
-    if no_banner_flag or quiet_mode or is_non_interactive():
-        return
-
-    try:
-        # Display standardized ASCII art
-        print("┏┳┓┏━╸╺┳┓╻┏━┓╻  ╻┏┓ ┏━┓┏━┓┏━┓╻ ╻╺┳╸┏━┓┏━┓╻  ┏━┓")
-        print("┃┃┃┣╸  ┃┃┃┣━┫┃  ┃┣┻┓┣┳┛┣━┫┣┳┛┗┳┛ ┃ ┃ ┃┃ ┃┃  ┗━┓")
-        print("╹ ╹┗━╸╺┻┛╹╹ ╹┗━╸╹┗━┛╹┗╸╹ ╹╹┗╸ ╹  ╹ ┗━┛┗━┛┗━╸┗━┛")
-        print(f"{script_name} v{version}: {description}")
-        print()  # Blank line for separation
-    except Exception:
-        # Banner display errors should not prevent script execution
-        pass
-
-
-def is_non_interactive() -> bool:
-    """
-    Detect if running in non-interactive environment (cron, etc.).
-
-    Returns:
-        True if non-interactive, False otherwise
-    """
-    # Check if stdin is not a TTY (common in cron jobs)
-    if not sys.stdin.isatty():
-        return True
-
-    # Check for common non-interactive environment variables
-    non_interactive_vars = ["CRON", "CI", "AUTOMATED", "NON_INTERACTIVE"]
-    for var in non_interactive_vars:
-        if os.environ.get(var):
-            return True
-
-    # Check if TERM is not set or is 'dumb' (common in automated environments)
-    term = os.environ.get("TERM", "")
-    return bool(not term or term == "dumb")
-
-
-# format_status_message function (copied from tests/run_tests.py)
-def format_status_message(
-    message: str, emoji: str = "", fallback_prefix: str = ""
-) -> str:
-    """
-    Format a status message with emoji on supported platforms or fallback text.
-
-    Args:
-        message: The main message text
-        emoji: The emoji to use on supported platforms
-        fallback_prefix: Text prefix to use instead of emoji on unsupported platforms
-
-    Returns:
-        Formatted message string
-    """
-    if should_use_emojis() and emoji:
-        return f"{emoji} {message}"
-    elif fallback_prefix:
-        return f"{fallback_prefix}: {message}"
-    else:
-        return message
 
 
 def read_module_content(module_path: str) -> str:

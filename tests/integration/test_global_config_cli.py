@@ -73,6 +73,12 @@ class TestGlobalConfigCLI(unittest.TestCase):
         with open(script_path) as f:
             script_content = f.read()
 
+        # Handle fcntl import with Windows compatibility
+        try:
+            import fcntl
+        except ImportError:
+            fcntl = None  # Windows compatibility
+        
         # Create a namespace with necessary imports
         namespace = {
             "__file__": str(script_path),
@@ -83,7 +89,7 @@ class TestGlobalConfigCLI(unittest.TestCase):
             "argparse": __import__("argparse"),
             "shutil": __import__("shutil"),
             "tempfile": __import__("tempfile"),
-            "fcntl": __import__("fcntl"),
+            "fcntl": fcntl,
             "re": __import__("re"),
             "time": __import__("time"),
             "json": __import__("json"),
