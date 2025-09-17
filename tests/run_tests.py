@@ -106,7 +106,7 @@ def is_non_interactive() -> bool:
 def is_windows() -> bool:
     """
     Detect if running on Windows platform.
-    
+
     Returns:
         True if running on Windows, False otherwise
     """
@@ -116,34 +116,33 @@ def is_windows() -> bool:
 def should_use_emojis() -> bool:
     """
     Determine if emojis should be used based on platform and environment.
-    
+
     Returns:
         True if emojis should be used, False otherwise
     """
     # Don't use emojis on Windows to avoid encoding issues
     if is_windows():
         return False
-    
+
     # Don't use emojis in non-interactive environments
     if is_non_interactive():
         return False
-    
+
     # Check for explicit emoji suppression
-    if os.environ.get("NO_EMOJIS", "").lower() in ("true", "1", "yes", "on"):
-        return False
-    
-    return True
+    return os.environ.get("NO_EMOJIS", "").lower() not in ("true", "1", "yes", "on")
 
 
-def format_status_message(message: str, emoji: str = "", fallback_prefix: str = "") -> str:
+def format_status_message(
+    message: str, emoji: str = "", fallback_prefix: str = ""
+) -> str:
     """
     Format a status message with emoji on supported platforms or fallback text.
-    
+
     Args:
         message: The main message text
         emoji: The emoji to use on supported platforms
         fallback_prefix: Text prefix to use instead of emoji on unsupported platforms
-    
+
     Returns:
         Formatted message string
     """
@@ -457,7 +456,9 @@ class TestRunner:
             category_results.append(result)
 
             # Print immediate results
-            status_msg = format_status_message("PASS" if result.is_successful else "FAIL", result.is_successful)
+            status_msg = format_status_message(
+                "PASS" if result.is_successful else "FAIL", result.is_successful
+            )
             print(
                 f"{status_msg} {result.passed} passed, {result.failed} failed, "
                 f"{result.errors} errors, {result.skipped} skipped "
@@ -505,7 +506,9 @@ class TestRunner:
                 result = self.run_test_file(test_file)
                 self.results.append(result)
 
-                status_msg = format_status_message("PASS" if result.is_successful else "FAIL", result.is_successful)
+                status_msg = format_status_message(
+                    "PASS" if result.is_successful else "FAIL", result.is_successful
+                )
                 print(
                     f"{status_msg} {result.passed} passed, {result.failed} failed, "
                     f"{result.errors} errors, {result.skipped} skipped "
@@ -549,7 +552,9 @@ class TestRunner:
         print(f"{format_status_message('FAILED', False)}: {total_failed}")
         print(f"{format_status_message('ERRORS', False)}: {total_errors}")
         print(f"{format_status_message('SKIPPED', None)}: {total_skipped}")
-        print(f"{format_status_message('SUCCESS RATE', success_rate > 90)}: {success_rate:.1f}%")
+        print(
+            f"{format_status_message('SUCCESS RATE', success_rate > 90)}: {success_rate:.1f}%"
+        )
         print(f"DURATION: {total_duration:.2f}s")
 
         # Show failed tests
@@ -589,7 +594,9 @@ class TestRunner:
         if total_failed == 0 and total_errors == 0:
             print(f"\n{format_status_message('ALL TESTS PASSED', True)}!")
         else:
-            print(f"\n{format_status_message('TESTS FAILED', False)}: {total_failed + total_errors}")
+            print(
+                f"\n{format_status_message('TESTS FAILED', False)}: {total_failed + total_errors}"
+            )
 
         # If coverage enabled, show where reports are located
         if getattr(self.args, "coverage", False):
@@ -775,7 +782,7 @@ Examples:
         VERSION,
         "Comprehensive test suite for media library tools",
         no_banner_flag=args.no_banner,
-        quiet_mode=getattr(args, 'quiet', False),
+        quiet_mode=getattr(args, "quiet", False),
     )
 
     # Handle special modes
@@ -789,28 +796,40 @@ Examples:
             print(f"  {check}: {status_msg}")
 
         if all(validation_results.values()):
-            print(f"\n{format_status_message('SUCCESS', True)}: Test environment is ready")
+            print(
+                f"\n{format_status_message('SUCCESS', True)}: Test environment is ready"
+            )
             sys.exit(0)
         else:
-            print(f"\n{format_status_message('ERROR', False)}: Test environment validation failed")
+            print(
+                f"\n{format_status_message('ERROR', False)}: Test environment validation failed"
+            )
             sys.exit(1)
 
     if args.setup_only:
         print("Setting up test environment...")
         if setup_test_environment():
-            print(f"{format_status_message('SUCCESS', True)}: Test environment setup complete")
+            print(
+                f"{format_status_message('SUCCESS', True)}: Test environment setup complete"
+            )
             sys.exit(0)
         else:
-            print(f"{format_status_message('ERROR', False)}: Test environment setup failed")
+            print(
+                f"{format_status_message('ERROR', False)}: Test environment setup failed"
+            )
             sys.exit(1)
 
     if args.cleanup_only:
         print("Cleaning up test environment...")
         if cleanup_test_environment():
-            print(f"{format_status_message('SUCCESS', True)}: Test environment cleanup complete")
+            print(
+                f"{format_status_message('SUCCESS', True)}: Test environment cleanup complete"
+            )
             sys.exit(0)
         else:
-            print(f"{format_status_message('ERROR', False)}: Test environment cleanup failed")
+            print(
+                f"{format_status_message('ERROR', False)}: Test environment cleanup failed"
+            )
             sys.exit(1)
 
     # Validate test environment before running tests
@@ -823,11 +842,15 @@ Examples:
         failed_checks = [k for k, v in validation_results.items() if not v]
 
         if failed_checks:
-            print(f"{format_status_message('ERROR', False)}: Environment validation failed: {failed_checks}")
+            print(
+                f"{format_status_message('ERROR', False)}: Environment validation failed: {failed_checks}"
+            )
             print("Run with --setup-only to fix environment issues")
             sys.exit(1)
         else:
-            print(f"{format_status_message('SUCCESS', True)}: Test environment validated")
+            print(
+                f"{format_status_message('SUCCESS', True)}: Test environment validated"
+            )
 
     # Adjust configuration for fast mode
     if args.fast:

@@ -131,7 +131,7 @@ def read_global_config_bool(var_name: str, default: bool = False) -> bool:
 def is_windows() -> bool:
     """
     Detect if running on Windows platform.
-    
+
     Returns:
         True if running on Windows, False otherwise
     """
@@ -141,23 +141,20 @@ def is_windows() -> bool:
 def should_use_emojis() -> bool:
     """
     Determine if emojis should be used based on platform and environment.
-    
+
     Returns:
         True if emojis should be used, False otherwise
     """
     # Don't use emojis on Windows to avoid encoding issues
     if is_windows():
         return False
-    
+
     # Don't use emojis in non-interactive environments
     if is_non_interactive():
         return False
-    
+
     # Check for explicit emoji suppression
-    if read_global_config_bool("NO_EMOJIS", False):
-        return False
-    
-    return True
+    return not read_global_config_bool("NO_EMOJIS", False)
 
 
 def format_size(size_bytes: int) -> str:

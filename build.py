@@ -48,7 +48,6 @@ Version: 2.0.0
 import argparse
 import logging
 import os
-import platform
 import sys
 import time
 from pathlib import Path
