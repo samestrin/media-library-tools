@@ -428,7 +428,7 @@ def get_output_path(script_path: Path, output_dir: Path) -> Path:
         script_name = script_parts[-1]  # The actual script name
         return output_dir / category / script_name
     else:
-        # For non-src scripts, just use the script name in output_dir
+        # For other paths, place in output_dir root
         return output_dir / script_path.name
 
 
