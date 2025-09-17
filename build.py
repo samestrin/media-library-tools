@@ -359,7 +359,12 @@ def create_function_module_mapping() -> Dict[str, str]:
         mapping[func] = "lib/core.py"
 
     # UI module functions
-    ui_functions = ["display_banner", "format_size", "confirm_action", "format_status_message"]
+    ui_functions = [
+        "display_banner",
+        "format_size",
+        "confirm_action",
+        "format_status_message",
+    ]
     for func in ui_functions:
         mapping[func] = "lib/ui.py"
 
@@ -477,24 +482,24 @@ def optimize_includes(
 def get_output_path(script_path: Path, output_dir: Path) -> Path:
     """
     Determine the correct output path for a script, handling src/ directory mapping.
-    
+
     Maps source directories to output directories:
     - src/SABnzbd/script -> SABnzbd/script
-    - src/plex/script -> plex/script  
+    - src/plex/script -> plex/script
     - src/plex-api/script -> plex-api/script
     - other/script -> script (in output_dir root)
-    
+
     Args:
         script_path: Path to the source script
         output_dir: Base output directory
-        
+
     Returns:
         Path: Complete output path for the built script
     """
     script_parts = script_path.parts
-    
+
     # Check if this is a src/ directory script
-    if len(script_parts) >= 2 and script_parts[0] == 'src':
+    if len(script_parts) >= 2 and script_parts[0] == "src":
         # Map src/category/script to category/script
         category = script_parts[1]  # SABnzbd, plex, plex-api, etc.
         script_name = script_parts[-1]  # The actual script name
@@ -625,7 +630,7 @@ def process_script(
 
     # Get the correct output path with proper directory mapping
     output_path = get_output_path(script_path, output_dir)
-    
+
     # Create output directory structure
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -784,14 +789,16 @@ def categorize_build_error(error: Exception, context: str) -> Tuple[str, str]:
             ),
             "reading_utils": (
                 "Missing Utils File",
-                "Ensure utils.py exists in the project root"
+                "Ensure utils.py exists in the project root",
             ),
             "reading_modules": (
                 "Missing Module File",
                 "Ensure all lib/ modules exist and are accessible",
             ),
         }
-        return context_mapping.get(context, ("File Not Found", "Check file paths and permissions"))
+        return context_mapping.get(
+            context, ("File Not Found", "Check file paths and permissions")
+        )
 
     elif isinstance(error, PermissionError):
         return (
