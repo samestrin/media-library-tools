@@ -86,7 +86,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 
 def display_banner(
@@ -307,7 +307,7 @@ class FileLock:
 # Legacy standalone functions for backward compatibility
 def acquire_lock(
     lock_prefix: str = "media_library_tool", force: bool = False
-) -> tuple[bool, Optional[FileLock]]:
+) -> Tuple[bool, Optional[FileLock]]:
     """
     Legacy function for acquiring file locks.
 
