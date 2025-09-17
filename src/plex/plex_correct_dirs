@@ -35,9 +35,6 @@ VERSION = "2.1.0"
 # ======================================================
 
 
-
-
-
 class PlexDirectoryCorrector:
     """Main class for correcting Plex directory names."""
 

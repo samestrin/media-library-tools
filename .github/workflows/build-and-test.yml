@@ -45,14 +45,7 @@ jobs:
 
     - name: Build tools
       run: |
-        python build.py --all --clean --verbose --output-dir build_output
-
-    - name: Copy built tools to main directories
-      run: |
-        python -c "import shutil; shutil.copytree('build_output/plex', 'plex', dirs_exist_ok=True)"
-        python -c "import shutil; shutil.copytree('build_output/SABnzbd', 'SABnzbd', dirs_exist_ok=True)"
-        python -c "import shutil; shutil.copytree('build_output/plex-api', 'plex-api', dirs_exist_ok=True)"
-        python -c "import shutil; shutil.rmtree('build_output', ignore_errors=True)"
+        python build.py --all --verbose
 
     - name: Test source tools
       run: |

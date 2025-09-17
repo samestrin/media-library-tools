@@ -89,3 +89,26 @@ def confirm_action(message: str, skip_confirmation: bool = False) -> bool:
     except (EOFError, KeyboardInterrupt):
         print("\nOperation cancelled.")
         return False
+
+
+def format_status_message(
+    message: str, emoji: str = "", fallback_prefix: str = ""
+) -> str:
+    """
+    Format a status message with optional emoji or fallback prefix.
+
+    Args:
+        message: The message to format
+        emoji: Emoji to use if emojis are supported
+        fallback_prefix: Text prefix to use if emojis are not supported
+
+    Returns:
+        Formatted message string
+    """
+    # Note: should_use_emojis() is available from the injected core module
+    if emoji and should_use_emojis():
+        return f"{emoji} {message}"
+    elif fallback_prefix:
+        return f"{fallback_prefix}: {message}"
+    else:
+        return message

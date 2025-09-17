@@ -49,12 +49,13 @@ import argparse
 import ast
 import logging
 import os
-import platform
 import re
 import sys
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
+
+from utils import should_use_emojis
 
 VERSION = "3.0.0"
 MARKER = "# {{include utils.py}}"
@@ -117,9 +118,6 @@ def is_non_interactive() -> bool:
     term = os.environ.get("TERM", "")
     return bool(not term or term == "dumb")
 
-
-# Import shared utility functions
-from utils import is_windows, should_use_emojis
 
 # format_status_message function (copied from tests/run_tests.py)
 def format_status_message(
@@ -226,18 +224,18 @@ def find_include_markers(script_content: str) -> List[Tuple[str, str]]:
         [('# {{include utils.py}}', 'utils.py'), ('# {{include lib/core.py}}', 'lib/core.py')]
     """
     markers = []
-    
+
     # Find legacy utils.py marker
     if MARKER in script_content:
         markers.append((MARKER, UTILS_FILE))
-    
+
     # Find modular lib includes using regex
     lib_matches = re.finditer(MODULE_MARKER_PATTERN, script_content)
     for match in lib_matches:
         full_marker = match.group(0)
         module_path = match.group(1)
         markers.append((full_marker, module_path))
-    
+
     return markers
 
 
@@ -259,16 +257,16 @@ def process_multiple_includes(script_content: str) -> str:
         OSError: If there's an error reading any module file
     """
     markers = find_include_markers(script_content)
-    
+
     if not markers:
         return script_content
-    
+
     processed_content = script_content
-    
+
     for marker, module_path in markers:
         try:
             module_content = read_module_content(module_path)
-            
+
             # Prepare the injected content with comments
             injected_content = f"""
 # ======================================================
@@ -284,14 +282,14 @@ def process_multiple_includes(script_content: str) -> str:
 # Source: {module_path}
 # ======================================================
 """
-            
+
             # Replace the marker with the injected content
             processed_content = processed_content.replace(marker, injected_content)
-            
+
         except Exception as e:
             # Re-raise with context about which module failed
             raise type(e)(f"Failed to process include '{module_path}': {e}") from e
-    
+
     return processed_content
 
 
@@ -315,11 +313,11 @@ def extract_function_calls(script_content: str) -> Set[str]:
         ['display_banner', 'format_size']
     """
     function_calls = set()
-    
+
     try:
         # Parse the script content into an AST
         tree = ast.parse(script_content)
-        
+
         # Walk through all nodes in the AST
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
@@ -329,12 +327,12 @@ def extract_function_calls(script_content: str) -> Set[str]:
                 # Handle attribute calls (e.g., obj.method())
                 elif isinstance(node.func, ast.Attribute):
                     function_calls.add(node.func.attr)
-    
+
     except SyntaxError:
         # If we can't parse the script, return empty set
         # This will fall back to including all modules
         pass
-    
+
     return function_calls
 
 
@@ -346,40 +344,54 @@ def create_function_module_mapping() -> Dict[str, str]:
         Dictionary mapping function names to module paths
     """
     mapping = {}
-    
+
     # Core module functions
     core_functions = [
-        'is_non_interactive', 'read_global_config_bool', 'is_windows', 
-        'should_use_emojis', 'FileLock', 'acquire_lock', 'release_lock'
+        "is_non_interactive",
+        "read_global_config_bool",
+        "is_windows",
+        "should_use_emojis",
+        "FileLock",
+        "acquire_lock",
+        "release_lock",
     ]
     for func in core_functions:
-        mapping[func] = 'lib/core.py'
-    
-    # UI module functions  
-    ui_functions = [
-        'display_banner', 'format_size', 'confirm_action'
-    ]
+        mapping[func] = "lib/core.py"
+
+    # UI module functions
+    ui_functions = ["display_banner", "format_size", "confirm_action", "format_status_message"]
     for func in ui_functions:
-        mapping[func] = 'lib/ui.py'
-    
+        mapping[func] = "lib/ui.py"
+
     # Filesystem module functions (when populated)
     filesystem_functions = [
-        'get_directory_size', 'validate_directory_path', 'safe_remove_directory',
-        'get_subdirectories', 'is_media_file', 'count_files_by_type',
-        'normalize_path', 'has_write_permission'
+        "get_directory_size",
+        "validate_directory_path",
+        "safe_remove_directory",
+        "get_subdirectories",
+        "is_media_file",
+        "count_files_by_type",
+        "normalize_path",
+        "has_write_permission",
     ]
     for func in filesystem_functions:
-        mapping[func] = 'lib/filesystem.py'
-    
+        mapping[func] = "lib/filesystem.py"
+
     # Validation module functions (when populated)
     validation_functions = [
-        'validate_path_argument', 'validate_filename', 'validate_positive_integer',
-        'validate_regex_pattern', 'validate_directory_writable', 'sanitize_filename',
-        'validate_cli_arguments', 'check_required_dependencies', 'validate_file_extension'
+        "validate_path_argument",
+        "validate_filename",
+        "validate_positive_integer",
+        "validate_regex_pattern",
+        "validate_directory_writable",
+        "sanitize_filename",
+        "validate_cli_arguments",
+        "check_required_dependencies",
+        "validate_file_extension",
     ]
     for func in validation_functions:
-        mapping[func] = 'lib/validation.py'
-    
+        mapping[func] = "lib/validation.py"
+
     return mapping
 
 
@@ -404,27 +416,29 @@ def analyze_dependencies(script_content: str) -> List[str]:
     """
     function_calls = extract_function_calls(script_content)
     function_module_map = create_function_module_mapping()
-    
+
     required_modules = set()
-    
+
     # Map function calls to modules
     for func_name in function_calls:
         if func_name in function_module_map:
             required_modules.add(function_module_map[func_name])
-    
+
     # Handle dependencies between modules
     # display_banner depends on is_non_interactive (core module)
-    if 'lib/ui.py' in required_modules and 'display_banner' in function_calls:
-        required_modules.add('lib/core.py')
-    
+    if "lib/ui.py" in required_modules and "display_banner" in function_calls:
+        required_modules.add("lib/core.py")
+
     # should_use_emojis depends on other core functions
-    if 'should_use_emojis' in function_calls:
-        required_modules.add('lib/core.py')  # Already there but explicit
-    
-    return sorted(list(required_modules))
+    if "should_use_emojis" in function_calls:
+        required_modules.add("lib/core.py")  # Already there but explicit
+
+    return sorted(required_modules)
 
 
-def optimize_includes(script_content: str, verbose: bool = False) -> Tuple[str, List[str]]:
+def optimize_includes(
+    script_content: str, verbose: bool = False
+) -> Tuple[str, List[str]]:
     """
     Optimize include markers based on actual function usage.
 
@@ -441,14 +455,14 @@ def optimize_includes(script_content: str, verbose: bool = False) -> Tuple[str, 
     # Extract existing includes
     existing_markers = find_include_markers(script_content)
     existing_modules = [module_path for _, module_path in existing_markers]
-    
+
     # Analyze dependencies
     suggested_modules = analyze_dependencies(script_content)
-    
+
     if verbose:
         print(f"  Existing includes: {existing_modules}")
         print(f"  Suggested includes: {suggested_modules}")
-        
+
         # Show potential savings
         if len(suggested_modules) < len(existing_modules):
             savings = len(existing_modules) - len(suggested_modules)
@@ -456,8 +470,38 @@ def optimize_includes(script_content: str, verbose: bool = False) -> Tuple[str, 
         elif len(suggested_modules) > len(existing_modules):
             missing = len(suggested_modules) - len(existing_modules)
             print(f"  Missing dependencies: {missing} modules needed")
-    
+
     return script_content, suggested_modules
+
+
+def get_output_path(script_path: Path, output_dir: Path) -> Path:
+    """
+    Determine the correct output path for a script, handling src/ directory mapping.
+    
+    Maps source directories to output directories:
+    - src/SABnzbd/script -> SABnzbd/script
+    - src/plex/script -> plex/script  
+    - src/plex-api/script -> plex-api/script
+    - other/script -> script (in output_dir root)
+    
+    Args:
+        script_path: Path to the source script
+        output_dir: Base output directory
+        
+    Returns:
+        Path: Complete output path for the built script
+    """
+    script_parts = script_path.parts
+    
+    # Check if this is a src/ directory script
+    if len(script_parts) >= 2 and script_parts[0] == 'src':
+        # Map src/category/script to category/script
+        category = script_parts[1]  # SABnzbd, plex, plex-api, etc.
+        script_name = script_parts[-1]  # The actual script name
+        return output_dir / category / script_name
+    else:
+        # For non-src scripts, just use the script name in output_dir
+        return output_dir / script_path.name
 
 
 def should_rebuild(
@@ -579,8 +623,11 @@ def process_script(
     if output_dir is None:
         output_dir = Path("build")
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / script_path.name
+    # Get the correct output path with proper directory mapping
+    output_path = get_output_path(script_path, output_dir)
+    
+    # Create output directory structure
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Check if rebuild is needed (unless forced)
     if not force_rebuild:
@@ -597,9 +644,13 @@ def process_script(
         except Exception:
             # Fallback to just utils.py if we can't read the script
             dependencies = [Path(UTILS_FILE)] if Path(UTILS_FILE).exists() else []
-        
+
         if not should_rebuild(script_path, output_path, dependencies):
-            print(format_status_message(f"Skipping {script_path.name} (up to date)", "⏭️", "SKIP"))
+            print(
+                format_status_message(
+                    f"Skipping {script_path.name} (up to date)", "⏭️", "SKIP"
+                )
+            )
             return True
 
     # Read the original script
@@ -608,7 +659,11 @@ def process_script(
             script_content = f.read()
     except Exception as e:
         category, suggestion = categorize_build_error(e, "reading_source")
-        print(format_status_message(f"Build Error ({category}): {script_path}", "❌", "ERROR"))
+        print(
+            format_status_message(
+                f"Build Error ({category}): {script_path}", "❌", "ERROR"
+            )
+        )
         print(f"  Details: {e}")
         print(f"  Resolution: {suggestion}")
         return False
@@ -617,7 +672,11 @@ def process_script(
     markers = find_include_markers(script_content)
     if not markers:
         print(
-            format_status_message(f"No include markers found in {script_path} - script will be copied as-is", "⚠️", "WARNING")
+            format_status_message(
+                f"No include markers found in {script_path} - script will be copied as-is",
+                "⚠️",
+                "WARNING",
+            )
         )
         built_content = script_content
     else:
@@ -626,7 +685,11 @@ def process_script(
             built_content = process_multiple_includes(script_content)
         except Exception as e:
             category, suggestion = categorize_build_error(e, "reading_modules")
-            print(format_status_message(f"Build Error ({category}): {script_path}", "❌", "ERROR"))
+            print(
+                format_status_message(
+                    f"Build Error ({category}): {script_path}", "❌", "ERROR"
+                )
+            )
             print(f"  Details: {e}")
             print(f"  Resolution: {suggestion}")
             return False
@@ -640,12 +703,20 @@ def process_script(
         if script_path.stat().st_mode & 0o111:  # If original is executable
             output_path.chmod(0o755)
 
-        print(format_status_message(f"Built: {script_path} -> {output_path}", "✅", "SUCCESS"))
+        print(
+            format_status_message(
+                f"Built: {script_path} -> {output_path}", "✅", "SUCCESS"
+            )
+        )
         return True
 
     except Exception as e:
         category, suggestion = categorize_build_error(e, "writing_output")
-        print(format_status_message(f"Build Error ({category}): {output_path}", "❌", "ERROR"))
+        print(
+            format_status_message(
+                f"Build Error ({category}): {output_path}", "❌", "ERROR"
+            )
+        )
         print(f"  Details: {e}")
         print(f"  Resolution: {suggestion}")
         return False
@@ -706,17 +777,21 @@ def categorize_build_error(error: Exception, context: str) -> Tuple[str, str]:
     error_msg = str(error).lower()
 
     if isinstance(error, FileNotFoundError):
-        if context == "reading_source":
-            return (
+        context_mapping = {
+            "reading_source": (
                 "Missing Source File",
                 "Verify the script path exists and is accessible",
-            )
-        elif context == "reading_utils":
-            return "Missing Utils File", "Ensure utils.py exists in the project root"
-        elif context == "reading_modules":
-            return "Missing Module File", "Ensure all lib/ modules exist and are accessible"
-        else:
-            return "File Not Found", "Check file paths and permissions"
+            ),
+            "reading_utils": (
+                "Missing Utils File",
+                "Ensure utils.py exists in the project root"
+            ),
+            "reading_modules": (
+                "Missing Module File",
+                "Ensure all lib/ modules exist and are accessible",
+            ),
+        }
+        return context_mapping.get(context, ("File Not Found", "Check file paths and permissions"))
 
     elif isinstance(error, PermissionError):
         return (
@@ -901,12 +976,18 @@ def build_all_tools(
                 total_scripts += 1
 
     if verbose and total_scripts > 1:
-        print(format_status_message(f"Building {total_scripts} tools...", "🔨", "BUILD"))
+        print(
+            format_status_message(f"Building {total_scripts} tools...", "🔨", "BUILD")
+        )
 
     # Process each script with progress indication
     for i, (script, script_name, target_output_dir) in enumerate(all_scripts, 1):
         if verbose and total_scripts > 1:
-            print(format_status_message(f"[{i}/{total_scripts}] Building {script_name}...", "🔨", "BUILD"))
+            print(
+                format_status_message(
+                    f"[{i}/{total_scripts}] Building {script_name}...", "🔨", "BUILD"
+                )
+            )
         elif verbose:
             print(format_status_message(f"Building {script_name}...", "🔨", "BUILD"))
 
@@ -917,7 +998,11 @@ def build_all_tools(
         if success and validate:
             built_script_path = target_output_dir / script.name
             if not validate_built_script(built_script_path):
-                print(format_status_message(f"Validation failed for {script_name}", "❌", "ERROR"))
+                print(
+                    format_status_message(
+                        f"Validation failed for {script_name}", "❌", "ERROR"
+                    )
+                )
                 results[script_name] = False
 
     return results
@@ -1048,7 +1133,11 @@ Output directories: plex/, SABnzbd/, plex-api/
         )
 
         if not results:
-            print(format_status_message("No scripts found to build in standard directories.", "⚠️", "WARNING"))
+            print(
+                format_status_message(
+                    "No scripts found to build in standard directories.", "⚠️", "WARNING"
+                )
+            )
             return 1
 
     else:
@@ -1065,7 +1154,11 @@ Output directories: plex/, SABnzbd/, plex-api/
             return 1
 
         if args.verbose:
-            print(format_status_message(f"Found {len(scripts)} script(s) to build:", "📋", "INFO"))
+            print(
+                format_status_message(
+                    f"Found {len(scripts)} script(s) to build:", "📋", "INFO"
+                )
+            )
             for script in scripts:
                 print(f"  {script}")
             print()
@@ -1075,7 +1168,9 @@ Output directories: plex/, SABnzbd/, plex-api/
         for script in scripts:
             script_name = str(script)
             if args.verbose:
-                print(format_status_message(f"Building {script_name}...", "🔨", "BUILD"))
+                print(
+                    format_status_message(f"Building {script_name}...", "🔨", "BUILD")
+                )
             success = process_script(script, args.output_dir, args.force_rebuild)
             results[script_name] = success
 
@@ -1083,7 +1178,11 @@ Output directories: plex/, SABnzbd/, plex-api/
             if success and args.validate:
                 built_script_path = args.output_dir / script.name
                 if not validate_built_script(built_script_path):
-                    print(format_status_message(f"Validation failed for {script_name}", "❌", "ERROR"))
+                    print(
+                        format_status_message(
+                            f"Validation failed for {script_name}", "❌", "ERROR"
+                        )
+                    )
                     results[script_name] = False
 
     # Generate summary
