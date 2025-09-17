@@ -30,8 +30,8 @@ def load_script_as_module(script_path: str, module_name: str):
     """
     script_path = Path(script_path)
 
-    # Create temporary .py file
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as temp_file:
+    # Create temporary .py file with UTF-8 encoding to handle Unicode characters
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as temp_file:
         temp_py_path = temp_file.name
 
         # Copy script content to temporary .py file
