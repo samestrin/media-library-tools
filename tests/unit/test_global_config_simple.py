@@ -90,7 +90,7 @@ class TestGlobalConfigSimple(unittest.TestCase):
                 }
             )
 
-            with open(script_path) as f:
+            with open(script_path, encoding="utf-8") as f:
                 script_content = f.read()
 
             # Find just the function definition

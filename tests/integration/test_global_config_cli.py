@@ -64,13 +64,13 @@ class TestGlobalConfigCLI(unittest.TestCase):
         Returns:
             Parsed arguments object with global config applied
         """
-        script_path = project_root / "plex" / script_name
+        script_path = project_root / script_name
 
         if not script_path.exists():
             self.skipTest(f"Script {script_name} not found")
 
         # Read the script
-        with open(script_path) as f:
+        with open(script_path, encoding="utf-8") as f:
             script_content = f.read()
 
         # Handle fcntl import with Windows compatibility
@@ -301,7 +301,7 @@ class TestNonInteractiveIntegration(unittest.TestCase):
             self.skipTest(f"Script {script_name} not found")
 
         # Load just the is_non_interactive function
-        with open(script_path) as f:
+        with open(script_path, encoding="utf-8") as f:
             content = f.read()
 
         # Find the function
