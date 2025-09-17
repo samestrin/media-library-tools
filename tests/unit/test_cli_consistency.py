@@ -425,9 +425,11 @@ class TestHelpTextConsistency(CLIConsistencyTestCase):
                         help_text,
                         f"Tool '{tool}' help missing section '{section}'",
                     )
-                
+
                 # Check that at least one of the options sections exists
-                has_options_section = any(section in help_text for section in options_sections)
+                has_options_section = any(
+                    section in help_text for section in options_sections
+                )
                 self.assertTrue(
                     has_options_section,
                     f"Tool '{tool}' help missing options section (expected 'options' or 'optional arguments')",
