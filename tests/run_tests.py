@@ -7,6 +7,7 @@ Purpose: Comprehensive test runner for the media library tools test suite
 
 import argparse
 import os
+import platform
 import subprocess
 import sys
 import time
@@ -44,6 +45,114 @@ except ImportError:
 
     def cleanup_test_environment():
         return True
+
+
+# Utility functions from utils.py for banner display and platform detection
+def display_banner(
+    script_name: str,
+    version: str,
+    description: str,
+    no_banner_flag: bool = False,
+    quiet_mode: bool = False,
+) -> None:
+    """
+    Display standardized banner for media library tools.
+
+    Args:
+        script_name: Name of the script
+        version: Version string
+        description: Brief description of the script
+        no_banner_flag: If True, suppress banner display
+        quiet_mode: If True, suppress banner display
+    """
+    # Check suppression conditions (highest to lowest priority)
+    if no_banner_flag or quiet_mode or is_non_interactive():
+        return
+
+    try:
+        # Display standardized ASCII art
+        print("┏┳┓┏━╸╺┳┓╻┏━┓╻  ╻┏┓ ┏━┓┏━┓┏━┓╻ ╻╺┳╸┏━┓┏━┓╻  ┏━┓")
+        print("┃┃┃┣╸  ┃┃┃┣━┫┃  ┃┣┻┓┣┳┛┣━┫┣┳┛┗┳┛ ┃ ┃ ┃┃ ┃┃  ┗━┓")
+        print("╹ ╹┗━╸╺┻┛╹╹ ╹┗━╸╹┗━┛╹┗╸╹ ╹╹┗╸ ╹  ╹ ┗━┛┗━┛┗━╸┗━┛")
+        print(f"{script_name} v{version}: {description}")
+        print()  # Blank line for separation
+    except Exception:
+        # Banner display errors should not prevent script execution
+        pass
+
+
+def is_non_interactive() -> bool:
+    """
+    Detect if running in non-interactive environment (cron, etc.).
+
+    Returns:
+        True if non-interactive, False otherwise
+    """
+    # Check if stdin is not a TTY (common in cron jobs)
+    if not sys.stdin.isatty():
+        return True
+
+    # Check for common non-interactive environment variables
+    non_interactive_vars = ["CRON", "CI", "AUTOMATED", "NON_INTERACTIVE"]
+    for var in non_interactive_vars:
+        if os.environ.get(var):
+            return True
+
+    # Check if TERM is not set or is 'dumb' (common in automated environments)
+    term = os.environ.get("TERM", "")
+    return bool(not term or term == "dumb")
+
+
+def is_windows() -> bool:
+    """
+    Detect if running on Windows platform.
+    
+    Returns:
+        True if running on Windows, False otherwise
+    """
+    return platform.system().lower() == "windows"
+
+
+def should_use_emojis() -> bool:
+    """
+    Determine if emojis should be used based on platform and environment.
+    
+    Returns:
+        True if emojis should be used, False otherwise
+    """
+    # Don't use emojis on Windows to avoid encoding issues
+    if is_windows():
+        return False
+    
+    # Don't use emojis in non-interactive environments
+    if is_non_interactive():
+        return False
+    
+    # Check for explicit emoji suppression
+    if os.environ.get("NO_EMOJIS", "").lower() in ("true", "1", "yes", "on"):
+        return False
+    
+    return True
+
+
+def format_status_message(message: str, emoji: str = "", fallback_prefix: str = "") -> str:
+    """
+    Format a status message with emoji on supported platforms or fallback text.
+    
+    Args:
+        message: The main message text
+        emoji: The emoji to use on supported platforms
+        fallback_prefix: Text prefix to use instead of emoji on unsupported platforms
+    
+    Returns:
+        Formatted message string
+    """
+    if should_use_emojis() and emoji:
+        return f"{emoji} {message}"
+    elif fallback_prefix:
+        return f"{fallback_prefix}: {message}"
+    else:
+        return message
 
 
 VERSION = "1.0"
@@ -97,7 +206,7 @@ class TestRunner:
                 self.build_dir = self.tests_dir / self.build_dir
 
             if not self.build_dir.exists():
-                print(f"❌ Build directory not found: {self.build_dir}")
+                print(f"ERROR: Build directory not found: {self.build_dir}")
                 print("Run 'python build.py --all' to build tools first")
                 sys.exit(1)
 
@@ -324,7 +433,7 @@ class TestRunner:
             List of TestResult objects
         """
         if category not in TEST_CATEGORIES:
-            print(f"❌ Unknown test category: {category}")
+            print(f"ERROR: Unknown test category: {category}")
             return []
 
         category_config = TEST_CATEGORIES[category]
@@ -333,24 +442,24 @@ class TestRunner:
         subdir = category_config.get("subdir")
 
         search_location = f"in {subdir}/" if subdir else "in tests/"
-        print(f"\n🧪 Running {category} tests (pattern: {pattern} {search_location})")
+        print(f"\nRunning {category} tests (pattern: {pattern} {search_location})")
         print("=" * 60)
 
         test_files = self.discover_tests(pattern, subdir)
         if not test_files:
-            print(f"⚠️  No test files found for pattern: {pattern}")
+            print(f"WARNING: No test files found for pattern: {pattern}")
             return []
 
         category_results = []
         for test_file in test_files:
-            print(f"\n📄 Running: {Path(test_file).name}")
+            print(f"\nRunning: {Path(test_file).name}")
             result = self.run_test_file(test_file, timeout)
             category_results.append(result)
 
             # Print immediate results
-            status = "✅" if result.is_successful else "❌"
+            status_msg = format_status_message("PASS" if result.is_successful else "FAIL", result.is_successful)
             print(
-                f"{status} {result.passed} passed, {result.failed} failed, "
+                f"{status_msg} {result.passed} passed, {result.failed} failed, "
                 f"{result.errors} errors, {result.skipped} skipped "
                 f"({result.duration:.2f}s)"
             )
@@ -383,22 +492,22 @@ class TestRunner:
                 self.results.extend(category_results)
         elif self.args.pattern:
             # Run tests matching a specific pattern
-            print(f"\n🧪 Running tests matching pattern: {self.args.pattern}")
+            print(f"\nRunning tests matching pattern: {self.args.pattern}")
             print("=" * 60)
 
             test_files = self.discover_tests(self.args.pattern)
             if not test_files:
-                print(f"⚠️  No test files found for pattern: {self.args.pattern}")
+                print(f"WARNING: No test files found for pattern: {self.args.pattern}")
                 return
 
             for test_file in test_files:
-                print(f"\n📄 Running: {Path(test_file).name}")
+                print(f"\nRunning: {Path(test_file).name}")
                 result = self.run_test_file(test_file)
                 self.results.append(result)
 
-                status = "✅" if result.is_successful else "❌"
+                status_msg = format_status_message("PASS" if result.is_successful else "FAIL", result.is_successful)
                 print(
-                    f"{status} {result.passed} passed, {result.failed} failed, "
+                    f"{status_msg} {result.passed} passed, {result.failed} failed, "
                     f"{result.errors} errors, {result.skipped} skipped "
                     f"({result.duration:.2f}s)"
                 )
@@ -419,7 +528,7 @@ class TestRunner:
         Generate and display a comprehensive test summary.
         """
         if not self.results:
-            print("\n⚠️  No tests were run.")
+            print("\nWARNING: No tests were run.")
             return
 
         total_duration = self.end_time - self.start_time
@@ -432,21 +541,21 @@ class TestRunner:
         success_rate = (total_passed / total_tests * 100) if total_tests > 0 else 0
 
         print("\n" + "=" * 80)
-        print("📊 TEST SUMMARY")
+        print("TEST SUMMARY")
         print("=" * 80)
 
         print(f"Total Tests Run: {total_tests}")
-        print(f"✅ Passed: {total_passed}")
-        print(f"❌ Failed: {total_failed}")
-        print(f"🚫 Errors: {total_errors}")
-        print(f"⏭️  Skipped: {total_skipped}")
-        print(f"📈 Success Rate: {success_rate:.1f}%")
-        print(f"⏱️  Total Duration: {total_duration:.2f}s")
+        print(f"{format_status_message('PASSED', True)}: {total_passed}")
+        print(f"{format_status_message('FAILED', False)}: {total_failed}")
+        print(f"{format_status_message('ERRORS', False)}: {total_errors}")
+        print(f"{format_status_message('SKIPPED', None)}: {total_skipped}")
+        print(f"{format_status_message('SUCCESS RATE', success_rate > 90)}: {success_rate:.1f}%")
+        print(f"DURATION: {total_duration:.2f}s")
 
         # Show failed tests
         failed_tests = [r for r in self.results if not r.is_successful]
         if failed_tests:
-            print("\n❌ FAILED TESTS:")
+            print("\nFAILED TESTS:")
             print("-" * 40)
             for result in failed_tests:
                 test_name = Path(result.name).name
@@ -467,7 +576,7 @@ class TestRunner:
 
         # Performance summary
         if self.args.show_performance:
-            print("\n⏱️  PERFORMANCE SUMMARY:")
+            print("\nPERFORMANCE SUMMARY:")
             print("-" * 40)
             sorted_results = sorted(
                 self.results, key=lambda r: r.duration, reverse=True
@@ -478,9 +587,9 @@ class TestRunner:
 
         # Overall result
         if total_failed == 0 and total_errors == 0:
-            print("\n🎉 ALL TESTS PASSED!")
+            print(f"\n{format_status_message('ALL TESTS PASSED', True)}!")
         else:
-            print(f"\n💥 {total_failed + total_errors} TESTS FAILED")
+            print(f"\n{format_status_message('TESTS FAILED', False)}: {total_failed + total_errors}")
 
         # If coverage enabled, show where reports are located
         if getattr(self.args, "coverage", False):
@@ -519,10 +628,10 @@ class TestRunner:
                             f.write(f"    {error}\n")
                     f.write("\n")
 
-            print(f"\n📄 Test report saved to: {output_path}")
+            print(f"\nTest report saved to: {output_path}")
 
         except Exception as e:
-            print(f"\n❌ Failed to save report: {e}")
+            print(f"\nERROR: Failed to save report: {e}")
 
 
 def main():
@@ -650,43 +759,58 @@ Examples:
         help="Directory containing built tools (default: .. - project root)",
     )
 
+    parser.add_argument(
+        "--no-banner",
+        action="store_true",
+        help="Suppress banner display",
+    )
+
     parser.add_argument("--version", action="version", version=f"%(prog)s v{VERSION}")
 
     args = parser.parse_args()
 
+    # Display banner unless suppressed or in quiet mode
+    display_banner(
+        "Media Library Tools Test Runner",
+        VERSION,
+        "Comprehensive test suite for media library tools",
+        no_banner_flag=args.no_banner,
+        quiet_mode=getattr(args, 'quiet', False),
+    )
+
     # Handle special modes
     if args.validate_only:
-        print("🔍 Validating test environment...")
+        print("Validating test environment...")
         validation_results = validate_test_environment()
 
         print("\nValidation Results:")
         for check, result in validation_results.items():
-            status = "✅" if result else "❌"
-            print(f"  {check}: {status}")
+            status_msg = format_status_message("PASS" if result else "FAIL", result)
+            print(f"  {check}: {status_msg}")
 
         if all(validation_results.values()):
-            print("\n✅ Test environment is ready")
+            print(f"\n{format_status_message('SUCCESS', True)}: Test environment is ready")
             sys.exit(0)
         else:
-            print("\n❌ Test environment validation failed")
+            print(f"\n{format_status_message('ERROR', False)}: Test environment validation failed")
             sys.exit(1)
 
     if args.setup_only:
-        print("🔧 Setting up test environment...")
+        print("Setting up test environment...")
         if setup_test_environment():
-            print("✅ Test environment setup complete")
+            print(f"{format_status_message('SUCCESS', True)}: Test environment setup complete")
             sys.exit(0)
         else:
-            print("❌ Test environment setup failed")
+            print(f"{format_status_message('ERROR', False)}: Test environment setup failed")
             sys.exit(1)
 
     if args.cleanup_only:
-        print("🧹 Cleaning up test environment...")
+        print("Cleaning up test environment...")
         if cleanup_test_environment():
-            print("✅ Test environment cleanup complete")
+            print(f"{format_status_message('SUCCESS', True)}: Test environment cleanup complete")
             sys.exit(0)
         else:
-            print("❌ Test environment cleanup failed")
+            print(f"{format_status_message('ERROR', False)}: Test environment cleanup failed")
             sys.exit(1)
 
     # Validate test environment before running tests
@@ -694,16 +818,16 @@ Examples:
         print(f"Media Library Tools Test Runner v{VERSION}")
         print("=" * 50)
 
-        print("\n🔍 Validating test environment...")
+        print("\nValidating test environment...")
         validation_results = validate_test_environment()
         failed_checks = [k for k, v in validation_results.items() if not v]
 
         if failed_checks:
-            print(f"❌ Environment validation failed: {failed_checks}")
+            print(f"{format_status_message('ERROR', False)}: Environment validation failed: {failed_checks}")
             print("Run with --setup-only to fix environment issues")
             sys.exit(1)
         else:
-            print("✅ Test environment validated")
+            print(f"{format_status_message('SUCCESS', True)}: Test environment validated")
 
     # Adjust configuration for fast mode
     if args.fast:
@@ -727,7 +851,7 @@ Examples:
                 pass  # type: ignore
             except Exception:
                 print(
-                    "\n❌ coverage.py is not installed. Install dev deps to use --coverage."
+                    "\nERROR: coverage.py is not installed. Install dev deps to use --coverage."
                 )
                 sys.exit(1)
 
@@ -775,7 +899,7 @@ Examples:
             and all(r.is_successful for r in runner.results)
         ):
             if not args.quiet:
-                print("\n🧹 Cleaning up test data...")
+                print("\nCleaning up test data...")
             cleanup_test_environment()
 
         # Exit with appropriate code
@@ -785,10 +909,10 @@ Examples:
             sys.exit(0)
 
     except KeyboardInterrupt:
-        print("\n\n⚠️  Test execution interrupted by user")
+        print("\n\nWARNING: Test execution interrupted by user")
         sys.exit(130)
     except Exception as e:
-        print(f"\n❌ Test runner failed: {e}")
+        print(f"\nERROR: Test runner failed: {e}")
         if args.debug:
             import traceback
 

@@ -335,7 +335,7 @@ if __name__ == "__main__":
 
     print("\nTest Paths:")
     for name, path in TEST_PATHS.items():
-        status = "✅" if path.exists() else "❌"
+        status = "PASS" if path.exists() else "FAIL"
         print(f"  {name}: {path} {status}")
 
     print("\nTest Configuration:")
@@ -345,15 +345,15 @@ if __name__ == "__main__":
     print("\nValidation Results:")
     validation_results = validate_test_environment()
     for check, result in validation_results.items():
-        status = "✅" if result else "❌"
+        status = "PASS" if result else "FAIL"
         print(f"  {check}: {status}")
 
     # Set up environment if needed
     if not all(validation_results.values()):
         print("\nSetting up test environment...")
         if setup_test_environment():
-            print("✅ Test environment setup complete")
+            print("SUCCESS: Test environment setup complete")
         else:
-            print("❌ Test environment setup failed")
+            print("ERROR: Test environment setup failed")
     else:
-        print("\n✅ Test environment is ready")
+        print("\nSUCCESS: Test environment is ready")

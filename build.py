@@ -47,6 +47,8 @@ Version: 2.0.0
 
 import argparse
 import logging
+import os
+import platform
 import sys
 import time
 from pathlib import Path
@@ -55,6 +57,62 @@ from typing import Dict, List, Optional, Tuple
 VERSION = "2.0.0"
 MARKER = "# {{include utils.py}}"
 UTILS_FILE = "utils.py"
+
+
+# Utility functions from utils.py for banner display
+def display_banner(
+    script_name: str,
+    version: str,
+    description: str,
+    no_banner_flag: bool = False,
+    quiet_mode: bool = False,
+) -> None:
+    """
+    Display standardized banner for media library tools.
+
+    Args:
+        script_name: Name of the script
+        version: Version string
+        description: Brief description of the script
+        no_banner_flag: If True, suppress banner display
+        quiet_mode: If True, suppress banner display
+    """
+    # Check suppression conditions (highest to lowest priority)
+    if no_banner_flag or quiet_mode or is_non_interactive():
+        return
+
+    try:
+        # Display standardized ASCII art
+        print("┏┳┓┏━╸╺┳┓╻┏━┓╻  ╻┏┓ ┏━┓┏━┓┏━┓╻ ╻╺┳╸┏━┓┏━┓╻  ┏━┓")
+        print("┃┃┃┣╸  ┃┃┃┣━┫┃  ┃┣┻┓┣┳┛┣━┫┣┳┛┗┳┛ ┃ ┃ ┃┃ ┃┃  ┗━┓")
+        print("╹ ╹┗━╸╺┻┛╹╹ ╹┗━╸╹┗━┛╹┗╸╹ ╹╹┗╸ ╹  ╹ ┗━┛┗━┛┗━╸┗━┛")
+        print(f"{script_name} v{version}: {description}")
+        print()  # Blank line for separation
+    except Exception:
+        # Banner display errors should not prevent script execution
+        pass
+
+
+def is_non_interactive() -> bool:
+    """
+    Detect if running in non-interactive environment (cron, etc.).
+
+    Returns:
+        True if non-interactive, False otherwise
+    """
+    # Check if stdin is not a TTY (common in cron jobs)
+    if not sys.stdin.isatty():
+        return True
+
+    # Check for common non-interactive environment variables
+    non_interactive_vars = ["CRON", "CI", "AUTOMATED", "NON_INTERACTIVE"]
+    for var in non_interactive_vars:
+        if os.environ.get(var):
+            return True
+
+    # Check if TERM is not set or is 'dumb' (common in automated environments)
+    term = os.environ.get("TERM", "")
+    return bool(not term or term == "dumb")
 
 
 def read_utils_content() -> str:
@@ -627,7 +685,22 @@ Output directories: plex/, SABnzbd/, plex-api/
         help="Force rebuild of all scripts even if up to date",
     )
 
+    parser.add_argument(
+        "--no-banner",
+        action="store_true",
+        help="Suppress banner display",
+    )
+
     args = parser.parse_args()
+
+    # Display banner unless suppressed
+    display_banner(
+        "Media Library Tools Build Script",
+        VERSION,
+        "Build system for creating standalone media library tools",
+        no_banner_flag=args.no_banner,
+        quiet_mode=False,
+    )
 
     # Setup logging
     setup_logging(args.verbose, args.log_file)

@@ -60,7 +60,7 @@ jobs:
 
     - name: Test built tools
       run: |
-        python tests/run_tests.py --built-tools --categories unit --verbose
+        python tests/run_tests.py --built-tools --categories unit --verbose --no-banner
 
     - name: Run integration tests (Linux only)
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
@@ -70,7 +70,7 @@ jobs:
     - name: Run integration tests on built tools (Linux only)
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
       run: |
-        python tests/run_tests.py --built-tools --categories integration --verbose
+        python tests/run_tests.py --built-tools --categories integration --verbose --no-banner
 
     - name: Generate coverage report
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
