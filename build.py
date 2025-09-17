@@ -489,13 +489,13 @@ def generate_build_summary(results: Dict[str, bool], start_time: float) -> None:
         print("\nFAILED SCRIPTS:")
         for script, success in results.items():
             if not success:
-                print(f"  ❌ {script}")
+                print(f"  ERROR: {script}")
 
     if success_count > 0:
         print("\nSUCCESSFUL SCRIPTS:")
         for script, success in results.items():
             if success:
-                print(f"  ✅ {script}")
+                print(f"  SUCCESS: {script}")
 
     print(f"{'=' * 60}")
 
