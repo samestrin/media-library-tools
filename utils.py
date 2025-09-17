@@ -19,13 +19,23 @@ Version: 1.0.0
 """
 
 import contextlib
-import fcntl
 import os
 import platform
 import sys
 import tempfile
 from pathlib import Path
 from typing import Optional, Tuple
+
+# Platform-specific imports
+try:
+    import fcntl  # Unix/Linux/macOS
+except ImportError:
+    fcntl = None  # Windows
+
+try:
+    import msvcrt  # Windows
+except ImportError:
+    msvcrt = None  # Unix/Linux/macOS
 
 
 def display_banner(
@@ -232,11 +242,20 @@ class FileLock:
                 mode="w", prefix=f"{self.lock_prefix}_", suffix=".lock", delete=False
             ) as temp_file:
                 self.lock_file = temp_file
-                fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                
+                # Platform-specific file locking
+                if fcntl is not None:  # Unix/Linux/macOS
+                    fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                elif msvcrt is not None:  # Windows
+                    msvcrt.locking(self.lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    # Fallback: no locking available, just proceed
+                    pass
+                    
                 self.lock_file.write(str(os.getpid()))
                 self.lock_file.flush()
             return True
-        except OSError as e:
+        except (OSError, IOError) as e:
             if self.lock_file:
                 self.lock_file.close()
                 with contextlib.suppress(OSError):
@@ -256,9 +275,15 @@ class FileLock:
             try:
                 # Only unlock if file is still open
                 if not self.lock_file.closed:
-                    fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
+                    # Platform-specific file unlocking
+                    if fcntl is not None:  # Unix/Linux/macOS
+                        fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
+                    elif msvcrt is not None:  # Windows
+                        msvcrt.locking(self.lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+                    # No explicit unlock needed for fallback case
+                    
                     self.lock_file.close()
-            except (OSError, ValueError):
+            except (OSError, ValueError, IOError):
                 # Handle both file system errors and closed file errors
                 pass
 

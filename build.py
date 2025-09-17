@@ -48,6 +48,7 @@ Version: 2.0.0
 import argparse
 import logging
 import os
+import platform
 import sys
 import time
 from pathlib import Path
@@ -112,6 +113,32 @@ def is_non_interactive() -> bool:
     # Check if TERM is not set or is 'dumb' (common in automated environments)
     term = os.environ.get("TERM", "")
     return bool(not term or term == "dumb")
+
+
+# Import shared utility functions
+from utils import is_windows, should_use_emojis
+
+# format_status_message function (copied from tests/run_tests.py)
+def format_status_message(
+    message: str, emoji: str = "", fallback_prefix: str = ""
+) -> str:
+    """
+    Format a status message with emoji on supported platforms or fallback text.
+
+    Args:
+        message: The main message text
+        emoji: The emoji to use on supported platforms
+        fallback_prefix: Text prefix to use instead of emoji on unsupported platforms
+
+    Returns:
+        Formatted message string
+    """
+    if should_use_emojis() and emoji:
+        return f"{emoji} {message}"
+    elif fallback_prefix:
+        return f"{fallback_prefix}: {message}"
+    else:
+        return message
 
 
 def read_utils_content() -> str:
@@ -264,7 +291,7 @@ def process_script(
         True
     """
     if not script_path.exists():
-        print(f"Error: Script not found: {script_path}")
+        print(format_status_message(f"Script not found: {script_path}", "❌", "ERROR"))
         return False
 
     # Determine output path
@@ -278,7 +305,7 @@ def process_script(
     if not force_rebuild:
         dependencies = [Path(UTILS_FILE)] if Path(UTILS_FILE).exists() else []
         if not should_rebuild(script_path, output_path, dependencies):
-            print(f"Skipping {script_path.name} (up to date)")
+            print(format_status_message(f"Skipping {script_path.name} (up to date)", "⏭️", "SKIP"))
             return True
 
     # Read the original script
@@ -287,7 +314,7 @@ def process_script(
             script_content = f.read()
     except Exception as e:
         category, suggestion = categorize_build_error(e, "reading_source")
-        print(f"Build Error ({category}): {script_path}")
+        print(format_status_message(f"Build Error ({category}): {script_path}", "❌", "ERROR"))
         print(f"  Details: {e}")
         print(f"  Resolution: {suggestion}")
         return False
@@ -295,7 +322,7 @@ def process_script(
     # Check if marker exists
     if MARKER not in script_content:
         print(
-            f"Warning: No marker found in {script_path} - script will be copied as-is"
+            format_status_message(f"No marker found in {script_path} - script will be copied as-is", "⚠️", "WARNING")
         )
         built_content = script_content
     else:
@@ -304,7 +331,7 @@ def process_script(
             utils_content = read_utils_content()
         except Exception as e:
             category, suggestion = categorize_build_error(e, "reading_utils")
-            print(f"Build Error ({category}): {script_path}")
+            print(format_status_message(f"Build Error ({category}): {script_path}", "❌", "ERROR"))
             print(f"  Details: {e}")
             print(f"  Resolution: {suggestion}")
             return False
@@ -336,12 +363,12 @@ def process_script(
         if script_path.stat().st_mode & 0o111:  # If original is executable
             output_path.chmod(0o755)
 
-        print(f"Built: {script_path} -> {output_path}")
+        print(format_status_message(f"Built: {script_path} -> {output_path}", "✅", "SUCCESS"))
         return True
 
     except Exception as e:
         category, suggestion = categorize_build_error(e, "writing_output")
-        print(f"Build Error ({category}): {output_path}")
+        print(format_status_message(f"Build Error ({category}): {output_path}", "❌", "ERROR"))
         print(f"  Details: {e}")
         print(f"  Resolution: {suggestion}")
         return False
@@ -546,13 +573,13 @@ def generate_build_summary(results: Dict[str, bool], start_time: float) -> None:
         print("\nFAILED SCRIPTS:")
         for script, success in results.items():
             if not success:
-                print(f"  ERROR: {script}")
+                print(f"  {format_status_message(script, '❌', 'ERROR')}")
 
     if success_count > 0:
         print("\nSUCCESSFUL SCRIPTS:")
         for script, success in results.items():
             if success:
-                print(f"  SUCCESS: {script}")
+                print(f"  {format_status_message(script, '✅', 'SUCCESS')}")
 
     print(f"{'=' * 60}")
 
@@ -595,14 +622,14 @@ def build_all_tools(
                 total_scripts += 1
 
     if verbose and total_scripts > 1:
-        print(f"Building {total_scripts} tools...")
+        print(format_status_message(f"Building {total_scripts} tools...", "🔨", "BUILD"))
 
     # Process each script with progress indication
     for i, (script, script_name, target_output_dir) in enumerate(all_scripts, 1):
         if verbose and total_scripts > 1:
-            print(f"[{i}/{total_scripts}] Building {script_name}...")
+            print(format_status_message(f"[{i}/{total_scripts}] Building {script_name}...", "🔨", "BUILD"))
         elif verbose:
-            print(f"Building {script_name}...")
+            print(format_status_message(f"Building {script_name}...", "🔨", "BUILD"))
 
         success = process_script(script, target_output_dir, force_rebuild)
         results[script_name] = success
@@ -611,7 +638,7 @@ def build_all_tools(
         if success and validate:
             built_script_path = target_output_dir / script.name
             if not validate_built_script(built_script_path):
-                print(f"Validation failed for {script_name}")
+                print(format_status_message(f"Validation failed for {script_name}", "❌", "ERROR"))
                 results[script_name] = False
 
     return results
@@ -742,7 +769,7 @@ Output directories: plex/, SABnzbd/, plex-api/
         )
 
         if not results:
-            print("No scripts found to build in standard directories.")
+            print(format_status_message("No scripts found to build in standard directories.", "⚠️", "WARNING"))
             return 1
 
     else:
@@ -755,11 +782,11 @@ Output directories: plex/, SABnzbd/, plex-api/
         scripts = find_scripts(args.paths)
 
         if not scripts:
-            print("No scripts found to build.")
+            print(format_status_message("No scripts found to build.", "⚠️", "WARNING"))
             return 1
 
         if args.verbose:
-            print(f"Found {len(scripts)} script(s) to build:")
+            print(format_status_message(f"Found {len(scripts)} script(s) to build:", "📋", "INFO"))
             for script in scripts:
                 print(f"  {script}")
             print()
@@ -769,7 +796,7 @@ Output directories: plex/, SABnzbd/, plex-api/
         for script in scripts:
             script_name = str(script)
             if args.verbose:
-                print(f"Building {script_name}...")
+                print(format_status_message(f"Building {script_name}...", "🔨", "BUILD"))
             success = process_script(script, args.output_dir, args.force_rebuild)
             results[script_name] = success
 
@@ -777,7 +804,7 @@ Output directories: plex/, SABnzbd/, plex-api/
             if success and args.validate:
                 built_script_path = args.output_dir / script.name
                 if not validate_built_script(built_script_path):
-                    print(f"Validation failed for {script_name}")
+                    print(format_status_message(f"Validation failed for {script_name}", "❌", "ERROR"))
                     results[script_name] = False
 
     # Generate summary
