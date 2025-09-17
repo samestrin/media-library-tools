@@ -8,6 +8,7 @@ project_rules.md
 .env
 results/
 CODING_STANDARDS.md
+.coverage.*
 
 # Python cache files
 __pycache__/
