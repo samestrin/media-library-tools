@@ -7,7 +7,6 @@ Purpose: Comprehensive test runner for the media library tools test suite
 
 import argparse
 import os
-import platform
 import subprocess
 import sys
 import time
@@ -16,6 +15,15 @@ from typing import List
 
 # Add utils to path for test configuration
 sys.path.insert(0, str(Path(__file__).parent / "utils"))
+
+# Add parent directory to path for utils.py import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Import shared utility functions from utils.py
+from utils import (
+    display_banner,
+    format_status_message,
+)
 
 try:
     from test_config import (
@@ -45,113 +53,6 @@ except ImportError:
 
     def cleanup_test_environment():
         return True
-
-
-# Utility functions from utils.py for banner display and platform detection
-def display_banner(
-    script_name: str,
-    version: str,
-    description: str,
-    no_banner_flag: bool = False,
-    quiet_mode: bool = False,
-) -> None:
-    """
-    Display standardized banner for media library tools.
-
-    Args:
-        script_name: Name of the script
-        version: Version string
-        description: Brief description of the script
-        no_banner_flag: If True, suppress banner display
-        quiet_mode: If True, suppress banner display
-    """
-    # Check suppression conditions (highest to lowest priority)
-    if no_banner_flag or quiet_mode or is_non_interactive():
-        return
-
-    try:
-        # Display standardized ASCII art
-        print("┏┳┓┏━╸╺┳┓╻┏━┓╻  ╻┏┓ ┏━┓┏━┓┏━┓╻ ╻╺┳╸┏━┓┏━┓╻  ┏━┓")
-        print("┃┃┃┣╸  ┃┃┃┣━┫┃  ┃┣┻┓┣┳┛┣━┫┣┳┛┗┳┛ ┃ ┃ ┃┃ ┃┃  ┗━┓")
-        print("╹ ╹┗━╸╺┻┛╹╹ ╹┗━╸╹┗━┛╹┗╸╹ ╹╹┗╸ ╹  ╹ ┗━┛┗━┛┗━╸┗━┛")
-        print(f"{script_name} v{version}: {description}")
-        print()  # Blank line for separation
-    except Exception:
-        # Banner display errors should not prevent script execution
-        pass
-
-
-def is_non_interactive() -> bool:
-    """
-    Detect if running in non-interactive environment (cron, etc.).
-
-    Returns:
-        True if non-interactive, False otherwise
-    """
-    # Check if stdin is not a TTY (common in cron jobs)
-    if not sys.stdin.isatty():
-        return True
-
-    # Check for common non-interactive environment variables
-    non_interactive_vars = ["CRON", "CI", "AUTOMATED", "NON_INTERACTIVE"]
-    for var in non_interactive_vars:
-        if os.environ.get(var):
-            return True
-
-    # Check if TERM is not set or is 'dumb' (common in automated environments)
-    term = os.environ.get("TERM", "")
-    return bool(not term or term == "dumb")
-
-
-def is_windows() -> bool:
-    """
-    Detect if running on Windows platform.
-
-    Returns:
-        True if running on Windows, False otherwise
-    """
-    return platform.system().lower() == "windows"
-
-
-def should_use_emojis() -> bool:
-    """
-    Determine if emojis should be used based on platform and environment.
-
-    Returns:
-        True if emojis should be used, False otherwise
-    """
-    # Don't use emojis on Windows to avoid encoding issues
-    if is_windows():
-        return False
-
-    # Don't use emojis in non-interactive environments
-    if is_non_interactive():
-        return False
-
-    # Check for explicit emoji suppression
-    return os.environ.get("NO_EMOJIS", "").lower() not in ("true", "1", "yes", "on")
-
-
-def format_status_message(
-    message: str, emoji: str = "", fallback_prefix: str = ""
-) -> str:
-    """
-    Format a status message with emoji on supported platforms or fallback text.
-
-    Args:
-        message: The main message text
-        emoji: The emoji to use on supported platforms
-        fallback_prefix: Text prefix to use instead of emoji on unsupported platforms
-
-    Returns:
-        Formatted message string
-    """
-    if should_use_emojis() and emoji:
-        return f"{emoji} {message}"
-    elif fallback_prefix:
-        return f"{fallback_prefix}: {message}"
-    else:
-        return message
 
 
 VERSION = "1.0"
@@ -225,7 +126,11 @@ class TestRunner:
         os.environ["BUILD_TOOLS_DIR"] = build_dir_str
 
         if not self.args.quiet:
-            print(f"🔧 Testing built tools from: {self.build_dir}")
+            print(
+                format_status_message(
+                    f"Testing built tools from: {self.build_dir}", "🔧", "TOOLS"
+                )
+            )
 
     def discover_tests(self, pattern: str = None, subdir: str = None) -> List[str]:
         """
@@ -548,12 +453,16 @@ class TestRunner:
         print("=" * 80)
 
         print(f"Total Tests Run: {total_tests}")
-        print(f"{format_status_message('PASSED', True)}: {total_passed}")
-        print(f"{format_status_message('FAILED', False)}: {total_failed}")
-        print(f"{format_status_message('ERRORS', False)}: {total_errors}")
-        print(f"{format_status_message('SKIPPED', None)}: {total_skipped}")
+        print(format_status_message(f"PASSED: {total_passed}", "✅", "PASSED"))
+        print(format_status_message(f"FAILED: {total_failed}", "❌", "FAILED"))
+        print(format_status_message(f"ERRORS: {total_errors}", "⚠️", "ERRORS"))
+        print(format_status_message(f"SKIPPED: {total_skipped}", "⏭️", "SKIPPED"))
+        success_emoji = "✅" if success_rate > 90 else "⚠️"
+        success_prefix = "SUCCESS RATE" if success_rate > 90 else "SUCCESS RATE"
         print(
-            f"{format_status_message('SUCCESS RATE', success_rate > 90)}: {success_rate:.1f}%"
+            format_status_message(
+                f"SUCCESS RATE: {success_rate:.1f}%", success_emoji, success_prefix
+            )
         )
         print(f"DURATION: {total_duration:.2f}s")
 
@@ -592,17 +501,17 @@ class TestRunner:
 
         # Overall result
         if total_failed == 0 and total_errors == 0:
-            print(f"\n{format_status_message('ALL TESTS PASSED', True)}!")
+            print(f"\n{format_status_message('ALL TESTS PASSED!', '🎉', 'SUCCESS')}")
         else:
             print(
-                f"\n{format_status_message('TESTS FAILED', False)}: {total_failed + total_errors}"
+                f"\n{format_status_message(f'TESTS FAILED: {total_failed + total_errors}', '❌', 'FAILED')}"
             )
 
         # If coverage enabled, show where reports are located
         if getattr(self.args, "coverage", False):
             cov_dir = Path("results") / "coverage_html"
             cov_xml = Path("results") / "coverage.xml"
-            print("\n📚 Coverage reports:")
+            print(f"\n{format_status_message('Coverage reports:', '📚', 'COVERAGE')}")
             print(f"  HTML: {cov_dir}/index.html")
             print(f"  XML:  {cov_xml}")
 
@@ -797,12 +706,12 @@ Examples:
 
         if all(validation_results.values()):
             print(
-                f"\n{format_status_message('SUCCESS', True)}: Test environment is ready"
+                f"\n{format_status_message('Test environment is ready', '✅', 'SUCCESS')}"
             )
             sys.exit(0)
         else:
             print(
-                f"\n{format_status_message('ERROR', False)}: Test environment validation failed"
+                f"\n{format_status_message('Test environment validation failed', '❌', 'ERROR')}"
             )
             sys.exit(1)
 
@@ -810,25 +719,26 @@ Examples:
         print("Setting up test environment...")
         if setup_test_environment():
             print(
-                f"{format_status_message('SUCCESS', True)}: Test environment setup complete"
+                format_status_message(
+                    "Test environment setup complete", "✅", "SUCCESS"
+                )
             )
-            sys.exit(0)
         else:
-            print(
-                f"{format_status_message('ERROR', False)}: Test environment setup failed"
-            )
+            print(format_status_message("Test environment setup failed", "❌", "ERROR"))
             sys.exit(1)
 
     if args.cleanup_only:
         print("Cleaning up test environment...")
         if cleanup_test_environment():
             print(
-                f"{format_status_message('SUCCESS', True)}: Test environment cleanup complete"
+                format_status_message(
+                    "Test environment cleanup complete", "✅", "SUCCESS"
+                )
             )
             sys.exit(0)
         else:
             print(
-                f"{format_status_message('ERROR', False)}: Test environment cleanup failed"
+                format_status_message("Test environment cleanup failed", "❌", "ERROR")
             )
             sys.exit(1)
 
@@ -843,14 +753,14 @@ Examples:
 
         if failed_checks:
             print(
-                f"{format_status_message('ERROR', False)}: Environment validation failed: {failed_checks}"
+                format_status_message(
+                    f"Environment validation failed: {failed_checks}", "❌", "ERROR"
+                )
             )
             print("Run with --setup-only to fix environment issues")
             sys.exit(1)
         else:
-            print(
-                f"{format_status_message('SUCCESS', True)}: Test environment validated"
-            )
+            print(format_status_message("Test environment validated", "✅", "SUCCESS"))
 
     # Adjust configuration for fast mode
     if args.fast:
