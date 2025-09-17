@@ -410,18 +410,28 @@ class TestHelpTextConsistency(CLIConsistencyTestCase):
         """Test that help text includes standard sections."""
         tools_to_test = ["plex_correct_dirs", "plex_make_dirs"]  # Representative sample
 
-        required_sections = ["usage:", "positional arguments", "options", "examples"]
+        required_sections = ["usage:", "positional arguments", "examples"]
+        # Accept either "options" or "optional arguments" as valid
+        options_sections = ["options", "optional arguments"]
 
         for tool in tools_to_test:
             with self.subTest(tool=tool):
                 help_text = self.get_help_text(tool).lower()
 
+                # Check required sections
                 for section in required_sections:
                     self.assertIn(
                         section,
                         help_text,
                         f"Tool '{tool}' help missing section '{section}'",
                     )
+                
+                # Check that at least one of the options sections exists
+                has_options_section = any(section in help_text for section in options_sections)
+                self.assertTrue(
+                    has_options_section,
+                    f"Tool '{tool}' help missing options section (expected 'options' or 'optional arguments')",
+                )
 
     def test_global_config_documentation(self):
         """Test that tools document global configuration in help text."""
