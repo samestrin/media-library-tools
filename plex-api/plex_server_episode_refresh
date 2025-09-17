@@ -216,10 +216,10 @@ class PlexServerEpisodeRefresh:
                         return content
                 return None
         except urllib.error.HTTPError as e:
-            print(f"HTTP Error {e.code}: {e.reason}", file=sys.stderr)
+            print(format_status_message(f"HTTP Error {e.code}: {e.reason}", "❌", "Error"), file=sys.stderr)
             return None
         except urllib.error.URLError as e:
-            print(f"URL Error: {e.reason}", file=sys.stderr)
+            print(format_status_message(f"URL Error: {e.reason}", "❌", "Error"), file=sys.stderr)
             return None
     
     def refresh_episode_image(self, episode_hash: str) -> bool:
@@ -237,7 +237,7 @@ class PlexServerEpisodeRefresh:
         Returns:
             True if successful, False otherwise
         """
-        print(f"Starting image refresh for episode {episode_hash}...")
+        print(format_status_message(f"Starting image refresh for episode {episode_hash}", "🔄"))
         
         # Step 1: Get episode metadata to verify it exists
         self.log_verbose("Verifying episode exists...")
@@ -245,7 +245,7 @@ class PlexServerEpisodeRefresh:
         episode_data = self._make_request(metadata_url)
         
         if not episode_data:
-            print(f"Error: Episode with hash {episode_hash} not found", file=sys.stderr)
+            print(format_status_message(f"Episode with hash {episode_hash} not found", "❌", "Error"), file=sys.stderr)
             return False
         
         # Extract episode information for verbose output
@@ -259,7 +259,7 @@ class PlexServerEpisodeRefresh:
                 episode_num = metadata.get('index', 'Unknown')
                 self.log_verbose(f"Found episode: {show_title} S{season_num}E{episode_num} - {episode_title}")
         
-        print(f"Found episode. Processing...")
+        print(format_status_message("Found episode. Processing", "✅"))
         
         # Step 2: Force analyze to regenerate thumbnail
         # The analyze process will regenerate the thumbnail from the video file
@@ -273,7 +273,7 @@ class PlexServerEpisodeRefresh:
         if analyze_result is not None or analyze_result == "":
             self.log_verbose("Analysis triggered successfully")
         else:
-            print("Warning: Analysis may not have triggered properly", file=sys.stderr)
+            print(format_status_message("Analysis may not have triggered properly", "⚠️", "Warning"), file=sys.stderr)
         
         # Step 3: Give Plex a moment to process
         self.log_verbose("Waiting for processing...")
@@ -289,7 +289,7 @@ class PlexServerEpisodeRefresh:
         if refresh_result is not None or refresh_result == "":
             self.log_verbose("Metadata refresh triggered successfully")
         else:
-            print("Warning: Metadata refresh may not have completed", file=sys.stderr)
+            print(format_status_message("Metadata refresh may not have completed", "⚠️", "Warning"), file=sys.stderr)
         
         # Step 5: Alternative method - delete existing thumb to force regeneration
         # This is a more aggressive approach but safe for thumbnails
@@ -320,7 +320,7 @@ class PlexServerEpisodeRefresh:
                         self.log_verbose("Re-triggering analysis for new thumbnail...")
                         self._make_request(analyze_url, method='PUT')
         
-        print(f"✅ Episode image refresh completed for episode {episode_hash}")
+        print(format_status_message(f"Episode image refresh completed for episode {episode_hash}", "✅", "Success"))
         if not self.verbose:
             print("Note: Thumbnail generation may take a few moments to complete in the background.")
             print("Refresh your Plex client to see the updated thumbnail.")
@@ -406,16 +406,16 @@ Server Sources (in order of priority):
             sys.exit(1)
             
     except ValueError as e:
-        print(f"Configuration Error: {e}", file=sys.stderr)
+        print(format_status_message(f"Configuration Error: {e}", "❌", "Error"), file=sys.stderr)
         print("\nPlease provide required configuration via:", file=sys.stderr)
         print("  Token: --token argument, PLEX_TOKEN environment variable, local .env, or ~/.media-library-tools/.env file", file=sys.stderr)
         print("  Server: --server argument, PLEX_SERVER environment variable, local .env, or ~/.media-library-tools/.env file", file=sys.stderr)
         sys.exit(1)
     except KeyboardInterrupt:
-        print("\nOperation cancelled by user", file=sys.stderr)
+        print(format_status_message("Operation cancelled by user", "❌", "Error"), file=sys.stderr)
         sys.exit(1)
     except Exception as e:
-        print(f"Unexpected error: {e}", file=sys.stderr)
+        print(format_status_message(f"Unexpected error: {e}", "❌", "Error"), file=sys.stderr)
         if args.debug:
             import traceback
             traceback.print_exc()
