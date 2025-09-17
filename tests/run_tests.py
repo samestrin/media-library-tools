@@ -646,8 +646,8 @@ Examples:
     )
     parser.add_argument(
         "--build-dir",
-        default="../build",
-        help="Directory containing built tools (default: ../build)",
+        default="..",
+        help="Directory containing built tools (default: .. - project root)",
     )
 
     parser.add_argument("--version", action="version", version=f"%(prog)s v{VERSION}")
