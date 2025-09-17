@@ -32,10 +32,8 @@ def display_banner(
         no_banner_flag: If True, suppress banner display
         quiet_mode: If True, suppress banner display
     """
-    # Import here to avoid circular dependency
-    from .core import is_non_interactive
-    
     # Check suppression conditions (highest to lowest priority)
+    # Note: is_non_interactive() is available from the injected core module
     if no_banner_flag or quiet_mode or is_non_interactive():
         return
 
