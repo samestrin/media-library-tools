@@ -256,7 +256,13 @@ TRAILING_SPACES=true
             self.assertTrue(result, "Should return default for non-existent var")
 
     def test_case_sensitivity(self):
-        """Test that variable names are case-sensitive."""
+        """Test that variable names are case-sensitive on Unix systems."""
+        import platform
+        
+        # Skip this test on Windows where environment variables are case-insensitive
+        if platform.system() == "Windows":
+            self.skipTest("Environment variables are case-insensitive on Windows")
+        
         os.environ["AUTO_EXECUTE"] = "false"  # uppercase
         os.environ["auto_execute"] = "true"  # lowercase  # noqa: SIM112
 
