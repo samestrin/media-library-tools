@@ -78,7 +78,7 @@ class TestGlobalConfigCLI(unittest.TestCase):
             import fcntl
         except ImportError:
             fcntl = None  # Windows compatibility
-        
+
         # Create a namespace with necessary imports
         namespace = {
             "__file__": str(script_path),

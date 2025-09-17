@@ -76,7 +76,7 @@ class TestGlobalConfigSimple(unittest.TestCase):
                 import fcntl
             except ImportError:
                 fcntl = None  # Windows compatibility
-            
+
             namespace.update(
                 {
                     "os": os,

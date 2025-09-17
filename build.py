@@ -48,14 +48,16 @@ Version: 3.0.0
 import argparse
 import ast
 import logging
-import os
 import re
 import sys
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
-from utils import should_use_emojis, display_banner, is_non_interactive, format_status_message
+from utils import (
+    display_banner,
+    format_status_message,
+)
 
 VERSION = "3.0.0"
 MARKER = "# {{include utils.py}}"
