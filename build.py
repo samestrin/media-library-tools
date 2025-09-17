@@ -42,21 +42,24 @@ Performance:
 - Typical improvement: 85-97% time savings for incremental builds
 
 Author: Media Library Tools Project
-Version: 2.0.0
+Version: 3.0.0
 """
 
 import argparse
+import ast
 import logging
 import os
 import platform
+import re
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
-VERSION = "2.0.0"
+VERSION = "3.0.0"
 MARKER = "# {{include utils.py}}"
 UTILS_FILE = "utils.py"
+MODULE_MARKER_PATTERN = r"# \{\{include (lib/[\w\.]+)\}\}"  # Pattern for lib includes
 
 
 # Utility functions from utils.py for banner display
@@ -141,13 +144,52 @@ def format_status_message(
         return message
 
 
+def read_module_content(module_path: str) -> str:
+    """
+    Read the content of a module file for injection into tool scripts.
+
+    This function loads module content from lib/ directory or utils.py for injection
+    into tool scripts at marker locations during the build process.
+
+    Args:
+        module_path: Path to the module file (e.g., 'lib/core.py' or 'utils.py')
+
+    Returns:
+        str: Complete content of the module as a string
+
+    Raises:
+        FileNotFoundError: If the module file is not found
+        IOError: If there's an error reading the file (permissions, encoding, etc.)
+
+    Example:
+        >>> core_content = read_module_content('lib/core.py')
+        >>> utils_content = read_module_content('utils.py')
+    """
+    module_file = Path(module_path)
+    if not module_file.exists():
+        raise FileNotFoundError(f"Module file not found: {module_path}")
+
+    try:
+        with open(module_file, encoding="utf-8") as f:
+            content = f.read()
+
+        # Strip shebang line if present to avoid duplicate shebangs in built scripts
+        lines = content.split("\n")
+        if lines and lines[0].startswith("#!"):
+            content = "\n".join(lines[1:])
+
+        return content
+    except OSError as e:
+        raise OSError(f"Error reading module file {module_path}: {e}") from e
+
+
 def read_utils_content() -> str:
     """
     Read the content of the utils.py file for injection into tool scripts.
 
-    This function loads the shared utility module that contains common functions
-    used across multiple media library tools. The content is injected into tool
-    scripts at marker locations during the build process.
+    This function is a wrapper around read_module_content for backward compatibility.
+    It loads the shared utility module that contains common functions used across
+    multiple media library tools.
 
     Returns:
         str: Complete content of utils.py as a string
@@ -161,22 +203,261 @@ def read_utils_content() -> str:
         >>> print(len(utils_content))
         8426  # Approximate size of utils.py content
     """
-    utils_path = Path(UTILS_FILE)
-    if not utils_path.exists():
-        raise FileNotFoundError(f"Utils file not found: {UTILS_FILE}")
+    return read_module_content(UTILS_FILE)
 
+
+def find_include_markers(script_content: str) -> List[Tuple[str, str]]:
+    """
+    Find all include markers in script content.
+
+    This function scans script content for both legacy utils.py includes and new
+    modular lib includes, returning them in the order they appear.
+
+    Args:
+        script_content: The content of the script to scan
+
+    Returns:
+        List of tuples (marker, module_path) for each include found
+
+    Example:
+        >>> content = "# {{include utils.py}}\\n# {{include lib/core.py}}"
+        >>> markers = find_include_markers(content)
+        >>> print(markers)
+        [('# {{include utils.py}}', 'utils.py'), ('# {{include lib/core.py}}', 'lib/core.py')]
+    """
+    markers = []
+    
+    # Find legacy utils.py marker
+    if MARKER in script_content:
+        markers.append((MARKER, UTILS_FILE))
+    
+    # Find modular lib includes using regex
+    lib_matches = re.finditer(MODULE_MARKER_PATTERN, script_content)
+    for match in lib_matches:
+        full_marker = match.group(0)
+        module_path = match.group(1)
+        markers.append((full_marker, module_path))
+    
+    return markers
+
+
+def process_multiple_includes(script_content: str) -> str:
+    """
+    Process multiple include markers in script content.
+
+    This function handles both legacy utils.py includes and new modular lib includes,
+    replacing each marker with the appropriate module content.
+
+    Args:
+        script_content: The original script content with include markers
+
+    Returns:
+        Script content with all includes processed
+
+    Raises:
+        FileNotFoundError: If any included module is not found
+        OSError: If there's an error reading any module file
+    """
+    markers = find_include_markers(script_content)
+    
+    if not markers:
+        return script_content
+    
+    processed_content = script_content
+    
+    for marker, module_path in markers:
+        try:
+            module_content = read_module_content(module_path)
+            
+            # Prepare the injected content with comments
+            injected_content = f"""
+# ======================================================
+# INJECTED MODULE - START
+# Generated by build.py v{VERSION}
+# Source: {module_path}
+# ======================================================
+
+{module_content}
+
+# ======================================================
+# INJECTED MODULE - END
+# Source: {module_path}
+# ======================================================
+"""
+            
+            # Replace the marker with the injected content
+            processed_content = processed_content.replace(marker, injected_content)
+            
+        except Exception as e:
+            # Re-raise with context about which module failed
+            raise type(e)(f"Failed to process include '{module_path}': {e}") from e
+    
+    return processed_content
+
+
+def extract_function_calls(script_content: str) -> Set[str]:
+    """
+    Extract function calls from Python script content using AST parsing.
+
+    This function analyzes Python code to identify all function calls, which can
+    then be used to determine which modules are actually needed.
+
+    Args:
+        script_content: Python script content to analyze
+
+    Returns:
+        Set of function names that are called in the script
+
+    Example:
+        >>> content = "display_banner('test', '1.0', 'desc')\\nformat_size(1024)"
+        >>> calls = extract_function_calls(content)
+        >>> print(sorted(calls))
+        ['display_banner', 'format_size']
+    """
+    function_calls = set()
+    
     try:
-        with open(utils_path, encoding="utf-8") as f:
-            content = f.read()
+        # Parse the script content into an AST
+        tree = ast.parse(script_content)
+        
+        # Walk through all nodes in the AST
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                # Handle direct function calls (e.g., function_name())
+                if isinstance(node.func, ast.Name):
+                    function_calls.add(node.func.id)
+                # Handle attribute calls (e.g., obj.method())
+                elif isinstance(node.func, ast.Attribute):
+                    function_calls.add(node.func.attr)
+    
+    except SyntaxError:
+        # If we can't parse the script, return empty set
+        # This will fall back to including all modules
+        pass
+    
+    return function_calls
 
-        # Strip shebang line if present to avoid duplicate shebangs in built scripts
-        lines = content.split("\n")
-        if lines and lines[0].startswith("#!"):
-            content = "\n".join(lines[1:])
 
-        return content
-    except OSError as e:
-        raise OSError(f"Error reading utils file: {e}") from e
+def create_function_module_mapping() -> Dict[str, str]:
+    """
+    Create a mapping of function names to their module locations.
+
+    Returns:
+        Dictionary mapping function names to module paths
+    """
+    mapping = {}
+    
+    # Core module functions
+    core_functions = [
+        'is_non_interactive', 'read_global_config_bool', 'is_windows', 
+        'should_use_emojis', 'FileLock', 'acquire_lock', 'release_lock'
+    ]
+    for func in core_functions:
+        mapping[func] = 'lib/core.py'
+    
+    # UI module functions  
+    ui_functions = [
+        'display_banner', 'format_size', 'confirm_action'
+    ]
+    for func in ui_functions:
+        mapping[func] = 'lib/ui.py'
+    
+    # Filesystem module functions (when populated)
+    filesystem_functions = [
+        'get_directory_size', 'validate_directory_path', 'safe_remove_directory',
+        'get_subdirectories', 'is_media_file', 'count_files_by_type',
+        'normalize_path', 'has_write_permission'
+    ]
+    for func in filesystem_functions:
+        mapping[func] = 'lib/filesystem.py'
+    
+    # Validation module functions (when populated)
+    validation_functions = [
+        'validate_path_argument', 'validate_filename', 'validate_positive_integer',
+        'validate_regex_pattern', 'validate_directory_writable', 'sanitize_filename',
+        'validate_cli_arguments', 'check_required_dependencies', 'validate_file_extension'
+    ]
+    for func in validation_functions:
+        mapping[func] = 'lib/validation.py'
+    
+    return mapping
+
+
+def analyze_dependencies(script_content: str) -> List[str]:
+    """
+    Analyze script content to determine which modules are actually needed.
+
+    This function uses AST parsing to detect function usage and maps those
+    functions to the modules that contain them, enabling selective inclusion.
+
+    Args:
+        script_content: The script content to analyze
+
+    Returns:
+        List of module paths that are actually needed
+
+    Example:
+        >>> content = "display_banner('test', '1.0', 'desc')"
+        >>> deps = analyze_dependencies(content)
+        >>> print(deps)
+        ['lib/ui.py', 'lib/core.py']  # ui for display_banner, core for is_non_interactive
+    """
+    function_calls = extract_function_calls(script_content)
+    function_module_map = create_function_module_mapping()
+    
+    required_modules = set()
+    
+    # Map function calls to modules
+    for func_name in function_calls:
+        if func_name in function_module_map:
+            required_modules.add(function_module_map[func_name])
+    
+    # Handle dependencies between modules
+    # display_banner depends on is_non_interactive (core module)
+    if 'lib/ui.py' in required_modules and 'display_banner' in function_calls:
+        required_modules.add('lib/core.py')
+    
+    # should_use_emojis depends on other core functions
+    if 'should_use_emojis' in function_calls:
+        required_modules.add('lib/core.py')  # Already there but explicit
+    
+    return sorted(list(required_modules))
+
+
+def optimize_includes(script_content: str, verbose: bool = False) -> Tuple[str, List[str]]:
+    """
+    Optimize include markers based on actual function usage.
+
+    This function analyzes script content to determine which modules are actually
+    needed and can suggest optimizations for include markers.
+
+    Args:
+        script_content: The script content to analyze
+        verbose: Whether to show detailed optimization information
+
+    Returns:
+        Tuple of (original_content, suggested_modules)
+    """
+    # Extract existing includes
+    existing_markers = find_include_markers(script_content)
+    existing_modules = [module_path for _, module_path in existing_markers]
+    
+    # Analyze dependencies
+    suggested_modules = analyze_dependencies(script_content)
+    
+    if verbose:
+        print(f"  Existing includes: {existing_modules}")
+        print(f"  Suggested includes: {suggested_modules}")
+        
+        # Show potential savings
+        if len(suggested_modules) < len(existing_modules):
+            savings = len(existing_modules) - len(suggested_modules)
+            print(f"  Potential optimization: Remove {savings} unnecessary includes")
+        elif len(suggested_modules) > len(existing_modules):
+            missing = len(suggested_modules) - len(existing_modules)
+            print(f"  Missing dependencies: {missing} modules needed")
+    
+    return script_content, suggested_modules
 
 
 def should_rebuild(
@@ -303,7 +584,20 @@ def process_script(
 
     # Check if rebuild is needed (unless forced)
     if not force_rebuild:
-        dependencies = [Path(UTILS_FILE)] if Path(UTILS_FILE).exists() else []
+        # Read script content to determine dependencies
+        try:
+            with open(script_path, encoding="utf-8") as f:
+                temp_content = f.read()
+            markers = find_include_markers(temp_content)
+            dependencies = []
+            for _, module_path in markers:
+                module_file = Path(module_path)
+                if module_file.exists():
+                    dependencies.append(module_file)
+        except Exception:
+            # Fallback to just utils.py if we can't read the script
+            dependencies = [Path(UTILS_FILE)] if Path(UTILS_FILE).exists() else []
+        
         if not should_rebuild(script_path, output_path, dependencies):
             print(format_status_message(f"Skipping {script_path.name} (up to date)", "⏭️", "SKIP"))
             return True
@@ -319,40 +613,23 @@ def process_script(
         print(f"  Resolution: {suggestion}")
         return False
 
-    # Check if marker exists
-    if MARKER not in script_content:
+    # Process include markers (both legacy and modular)
+    markers = find_include_markers(script_content)
+    if not markers:
         print(
-            format_status_message(f"No marker found in {script_path} - script will be copied as-is", "⚠️", "WARNING")
+            format_status_message(f"No include markers found in {script_path} - script will be copied as-is", "⚠️", "WARNING")
         )
         built_content = script_content
     else:
-        # Read utils content
+        # Process all includes using the new multiple includes system
         try:
-            utils_content = read_utils_content()
+            built_content = process_multiple_includes(script_content)
         except Exception as e:
-            category, suggestion = categorize_build_error(e, "reading_utils")
+            category, suggestion = categorize_build_error(e, "reading_modules")
             print(format_status_message(f"Build Error ({category}): {script_path}", "❌", "ERROR"))
             print(f"  Details: {e}")
             print(f"  Resolution: {suggestion}")
             return False
-
-        # Prepare the injected content with comments
-        injected_content = f"""
-# ======================================================
-# INJECTED SHARED UTILITIES - START
-# Generated by build.py v{VERSION}
-# Source: {UTILS_FILE}
-# ======================================================
-
-{utils_content}
-
-# ======================================================
-# INJECTED SHARED UTILITIES - END
-# ======================================================
-"""
-
-        # Replace the marker with the injected content
-        built_content = script_content.replace(MARKER, injected_content)
 
     # Write the built script
     try:
@@ -436,6 +713,8 @@ def categorize_build_error(error: Exception, context: str) -> Tuple[str, str]:
             )
         elif context == "reading_utils":
             return "Missing Utils File", "Ensure utils.py exists in the project root"
+        elif context == "reading_modules":
+            return "Missing Module File", "Ensure all lib/ modules exist and are accessible"
         else:
             return "File Not Found", "Check file paths and permissions"
 
