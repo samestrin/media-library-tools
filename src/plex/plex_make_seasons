@@ -28,6 +28,7 @@ three-phase processing: consolidation, organization, and optional archiving.
 
 Features:
 - Three-phase processing: consolidation → organization → archive
+- System trash cleanup (.DS_Store, Thumbs.db, etc.)
 - Sample file detection with configurable size threshold
 - Directory exclusion with pattern matching
 - Enhanced conflict resolution
@@ -40,7 +41,7 @@ Features:
 - Global configuration via .env files
 
 Author: Media Library Tools Project
-Version: 3.0.0
+Version: 3.1.0
 """
 
 import argparse
@@ -53,10 +54,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Union
 
-VERSION = "3.0.0"
+VERSION = "3.1.0"
 
 # ======================================================
 # {{include utils.py}}
+
+
+# ======================================================
+# {{include lib/cleanup.py}}
 
 
 # ======================================================
@@ -93,6 +98,10 @@ class Configuration:
         # Archive settings
         self.enable_archive = False
         self.archive_retention = self.DEFAULT_ARCHIVE_RETENTION
+
+        # Cleanup settings
+        self.enable_cleanup = False
+        self.cleanup_recursive = True
 
         # Phase control
         self.phase_mode = 'full'  # 'full', 'consolidate', 'organize', 'archive'
@@ -440,12 +449,34 @@ class SeasonOrganizer:
             'sample_files': [],
             'season_groups': {},
             'conflicts': [],
-            'stats': {}
+            'stats': {},
+            'cleanup_stats': {}
         }
 
         if self.config.verbose:
             print("\n==> PHASE 1: CONSOLIDATION")
             print(f"Discovering video files (depth: {self.config.depth})...")
+
+        # Step 0: System trash cleanup (if enabled)
+        if self.config.enable_cleanup:
+            if self.config.verbose:
+                print("Cleaning system trash files...")
+
+            cleaner = SystemTrashCleaner(
+                verbose=self.config.verbose,
+                dry_run=self.config.dry_run
+            )
+            cleanup_count = cleaner.clean_directory(
+                source_dir,
+                recursive=self.config.cleanup_recursive
+            )
+            result['cleanup_stats'] = cleaner.get_stats()
+
+            if self.config.verbose:
+                if self.config.dry_run:
+                    print(f"Would remove {cleanup_count} trash files")
+                else:
+                    print(f"Removed {cleanup_count} trash files")
 
         # Find all video files
         content_files, sample_files = self.find_video_files_with_depth(source_dir, self.config.depth)
@@ -940,15 +971,16 @@ Examples:
   %(prog)s --execute -y                         # Organize without confirmation
   %(prog)s --sample-detect --sample-threshold 75 --execute  # Enable sample detection with custom threshold
   %(prog)s --ignore-dir "Extras,Samples" --execute          # Exclude specific directories
+  %(prog)s --cleanup --execute                  # Clean .DS_Store and system trash files
   %(prog)s --archive --execute                  # Enable sample archiving
   %(prog)s --season 1 --execute                 # Process only Season 1 files
   %(prog)s --dry-run-level detailed             # Show detailed dry-run preview
   %(prog)s --depth 3 --execute                  # Search 3 levels deep
-  %(prog)s --verbose --execute                  # Show verbose output
+  %(prog)s --verbose --cleanup --execute        # Show verbose output with cleanup
 
 Cron Usage:
-  # Run daily at 3 AM (non-interactive)
-  0 3 * * * /usr/local/bin/plex_make_seasons /path/to/tv/downloads --execute -y
+  # Run daily at 3 AM with cleanup (non-interactive)
+  0 3 * * * /usr/local/bin/plex_make_seasons /path/to/tv/downloads --cleanup --execute -y
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -1001,6 +1033,11 @@ Cron Usage:
         '--archive',
         action='store_true',
         help='Enable sample file archiving'
+    )
+    parser.add_argument(
+        '--cleanup',
+        action='store_true',
+        help='Clean system trash files (.DS_Store, Thumbs.db, etc.) before processing'
     )
     parser.add_argument(
         '--dry-run-level',
@@ -1093,6 +1130,9 @@ Cron Usage:
 
     if args.archive:
         config.enable_archive = True
+
+    if args.cleanup:
+        config.enable_cleanup = True
 
     # Validate configuration
     if not config.validate():

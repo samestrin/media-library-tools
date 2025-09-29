@@ -8,6 +8,7 @@ directory and organizes video files into proper season structures.
 
 Features:
 - Batch processing of multiple TV show directories
+- System trash cleanup (.DS_Store, Thumbs.db, etc.)
 - Parallel processing for improved performance
 - Progress tracking and detailed reporting
 - File-based locking mechanism
@@ -16,7 +17,7 @@ Features:
 - Cron-friendly operation
 
 Author: Media Library Tools Project
-Version: 2.1.0
+Version: 2.2.0
 """
 
 import argparse
@@ -29,10 +30,14 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
-VERSION = "2.1.0"
+VERSION = "2.2.0"
 
 # ======================================================
 # {{include utils.py}}
+
+
+# ======================================================
+# {{include lib/cleanup.py}}
 
 
 # ======================================================
@@ -50,11 +55,13 @@ VERSION = "2.1.0"
 class SeasonOrganizer:
     """Organizes video files into season directories."""
     
-    def __init__(self, dry_run: bool = False, depth: int = 1):
+    def __init__(self, dry_run: bool = False, depth: int = 1, enable_cleanup: bool = False, verbose: bool = False):
         self.dry_run = dry_run
         self.depth = depth
+        self.enable_cleanup = enable_cleanup
+        self.verbose = verbose
         self.video_extensions = {
-            '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', 
+            '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm',
             '.m4v', '.mpg', '.mpeg', '.3gp', '.ogv', '.ts', '.m2ts'
         }
         
@@ -339,16 +346,24 @@ class SeasonOrganizer:
 
 class PlexSeasonBatchOrganizer:
     """Main class for batch season organization."""
-    
-    def __init__(self, dry_run: bool = False, force: bool = False, 
-                 max_workers: int = 4, recursive: bool = False, depth: int = 1):
+
+    def __init__(self, dry_run: bool = False, force: bool = False,
+                 max_workers: int = 4, recursive: bool = False, depth: int = 1,
+                 enable_cleanup: bool = False, verbose: bool = False):
         self.dry_run = dry_run
         self.force = force
         self.max_workers = max_workers
         self.recursive = recursive
         self.depth = depth
+        self.enable_cleanup = enable_cleanup
+        self.verbose = verbose
         self.file_lock = FileLock('plex_make_all_seasons')
-        self.organizer = SeasonOrganizer(dry_run=dry_run, depth=depth)
+        self.organizer = SeasonOrganizer(
+            dry_run=dry_run,
+            depth=depth,
+            enable_cleanup=enable_cleanup,
+            verbose=verbose
+        )
     
     def acquire_lock(self) -> bool:
         """Acquire file lock to prevent multiple instances."""
@@ -529,12 +544,24 @@ class PlexSeasonBatchOrganizer:
         if self.recursive:
             print("RECURSIVE MODE - Processing all subdirectories")
         print(f"Using {self.max_workers} worker threads")
-        print()
-        
+
+        # System trash cleanup (if enabled)
+        if self.enable_cleanup:
+            print("\nCleaning system trash files...")
+            cleaner = SystemTrashCleaner(verbose=self.verbose, dry_run=self.dry_run)
+            cleanup_count = cleaner.clean_directory(base_dir, recursive=True)
+
+            if self.dry_run:
+                print(f"Would remove {cleanup_count} trash files\n")
+            else:
+                print(f"Removed {cleanup_count} trash files\n")
+        else:
+            print()
+
         # Handle confirmation
         if not self.handle_confirmation(skip_confirmation):
             return False
-        
+
         # Find all show directories
         show_dirs = self.find_show_directories(base_dir)
         
@@ -608,6 +635,11 @@ Cron Usage:
         '--debug',
         action='store_true',
         help='Show detailed debug output'
+    )
+    parser.add_argument(
+        '--cleanup',
+        action='store_true',
+        help='Clean system trash files (.DS_Store, Thumbs.db, etc.) before processing'
     )
     parser.add_argument(
         '--force',
@@ -696,7 +728,9 @@ Cron Usage:
         force=args.force,
         max_workers=args.parallel,
         recursive=args.recursive,
-        depth=args.depth
+        depth=args.depth,
+        enable_cleanup=args.cleanup,
+        verbose=args.verbose or args.debug
     )
     
     try:
