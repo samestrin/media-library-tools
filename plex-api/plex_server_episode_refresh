@@ -523,7 +523,7 @@ class PlexServerEpisodeRefresh:
         
         # Finally check global .env file
         from pathlib import Path
-        global_env_path = Path.home() / '.media-library-tool' / '.env'
+        global_env_path = Path.home() / '.media-library-tools' / '.env'
         if global_env_path.exists():
             try:
                 with open(global_env_path, 'r') as f:
@@ -568,7 +568,7 @@ class PlexServerEpisodeRefresh:
         
         # Finally check global .env file
         from pathlib import Path
-        global_env_path = Path.home() / '.media-library-tool' / '.env'
+        global_env_path = Path.home() / '.media-library-tools' / '.env'
         if global_env_path.exists():
             try:
                 with open(global_env_path, 'r') as f:

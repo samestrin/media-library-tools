@@ -148,7 +148,7 @@ class TestCredentialHandling(MediaLibraryTestCase):
     def test_get_token_from_global_env_file(self):
         """Test token retrieval from global .env file."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            global_env_dir = Path(temp_dir) / ".media-library-tool"
+            global_env_dir = Path(temp_dir) / ".media-library-tools"
             global_env_dir.mkdir()
             global_env_file = global_env_dir / ".env"
             global_env_file.write_text("PLEX_TOKEN=global_env_token\n")
@@ -165,7 +165,7 @@ class TestCredentialHandling(MediaLibraryTestCase):
     def test_get_server_from_global_env_file(self):
         """Test server URL retrieval from global .env file."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            global_env_dir = Path(temp_dir) / ".media-library-tool"
+            global_env_dir = Path(temp_dir) / ".media-library-tools"
             global_env_dir.mkdir()
             global_env_file = global_env_dir / ".env"
             global_env_file.write_text("PLEX_SERVER=http://global-env-server:32400\n")
@@ -186,7 +186,7 @@ class TestCredentialHandling(MediaLibraryTestCase):
             local_env_file.write_text("PLEX_TOKEN=local_env_token\n")
 
             # Create global .env file
-            global_env_dir = Path(temp_dir) / ".media-library-tool"
+            global_env_dir = Path(temp_dir) / ".media-library-tools"
             global_env_dir.mkdir()
             global_env_file = global_env_dir / ".env"
             global_env_file.write_text("PLEX_TOKEN=global_env_token\n")
@@ -247,7 +247,7 @@ class TestCredentialHandling(MediaLibraryTestCase):
             local_env_file.write_text("PLEX_SERVER=http://local-env:32400\n")
 
             # Create global .env file
-            global_env_dir = Path(temp_dir) / ".media-library-tool"
+            global_env_dir = Path(temp_dir) / ".media-library-tools"
             global_env_dir.mkdir()
             global_env_file = global_env_dir / ".env"
             global_env_file.write_text("PLEX_SERVER=http://global-env:32400\n")

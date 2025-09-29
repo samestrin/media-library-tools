@@ -37,7 +37,7 @@ The tool requires a Plex authentication token (in order of priority):
 1. Command line argument: `--token YOUR_PLEX_TOKEN`
 2. Environment variable: `export PLEX_TOKEN="YOUR_PLEX_TOKEN"`
 3. Local `.env` file: `echo "PLEX_TOKEN=YOUR_PLEX_TOKEN" > .env`
-4. Global `.env` file: `mkdir -p ~/.media-library-tool && echo "PLEX_TOKEN=YOUR_PLEX_TOKEN" > ~/.media-library-tools/.env`
+4. Global `.env` file: `mkdir -p ~/.media-library-tools && echo "PLEX_TOKEN=YOUR_PLEX_TOKEN" > ~/.media-library-tools/.env`
 
 **Plex server setup**
 
