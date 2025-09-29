@@ -7,6 +7,7 @@ Purpose: Comprehensive test runner for the media library tools test suite
 
 import argparse
 import os
+import platform
 import subprocess
 import sys
 import time
@@ -23,6 +24,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils import (
     display_banner,
     format_status_message,
+    is_non_interactive,
+    is_windows,
+    should_use_emojis,
 )
 
 try:
@@ -126,11 +130,7 @@ class TestRunner:
         os.environ["BUILD_TOOLS_DIR"] = build_dir_str
 
         if not self.args.quiet:
-            print(
-                format_status_message(
-                    f"Testing built tools from: {self.build_dir}", "🔧", "TOOLS"
-                )
-            )
+            print(format_status_message(f"Testing built tools from: {self.build_dir}", "🔧", "TOOLS"))
 
     def discover_tests(self, pattern: str = None, subdir: str = None) -> List[str]:
         """
@@ -453,17 +453,13 @@ class TestRunner:
         print("=" * 80)
 
         print(f"Total Tests Run: {total_tests}")
-        print(format_status_message(f"PASSED: {total_passed}", "✅", "PASSED"))
-        print(format_status_message(f"FAILED: {total_failed}", "❌", "FAILED"))
-        print(format_status_message(f"ERRORS: {total_errors}", "⚠️", "ERRORS"))
-        print(format_status_message(f"SKIPPED: {total_skipped}", "⏭️", "SKIPPED"))
-        success_emoji = "✅" if success_rate > 90 else "⚠️"
-        success_prefix = "SUCCESS RATE" if success_rate > 90 else "SUCCESS RATE"
-        print(
-            format_status_message(
-                f"SUCCESS RATE: {success_rate:.1f}%", success_emoji, success_prefix
-            )
-        )
+        print(format_status_message(f'PASSED: {total_passed}', '✅', 'PASSED'))
+        print(format_status_message(f'FAILED: {total_failed}', '❌', 'FAILED'))
+        print(format_status_message(f'ERRORS: {total_errors}', '⚠️', 'ERRORS'))
+        print(format_status_message(f'SKIPPED: {total_skipped}', '⏭️', 'SKIPPED'))
+        success_emoji = '✅' if success_rate > 90 else '⚠️'
+        success_prefix = 'SUCCESS RATE' if success_rate > 90 else 'SUCCESS RATE'
+        print(format_status_message(f'SUCCESS RATE: {success_rate:.1f}%', success_emoji, success_prefix))
         print(f"DURATION: {total_duration:.2f}s")
 
         # Show failed tests
@@ -503,9 +499,7 @@ class TestRunner:
         if total_failed == 0 and total_errors == 0:
             print(f"\n{format_status_message('ALL TESTS PASSED!', '🎉', 'SUCCESS')}")
         else:
-            print(
-                f"\n{format_status_message(f'TESTS FAILED: {total_failed + total_errors}', '❌', 'FAILED')}"
-            )
+            print(f"\n{format_status_message(f'TESTS FAILED: {total_failed + total_errors}', '❌', 'FAILED')}")
 
         # If coverage enabled, show where reports are located
         if getattr(self.args, "coverage", False):
@@ -705,41 +699,27 @@ Examples:
             print(f"  {check}: {status_msg}")
 
         if all(validation_results.values()):
-            print(
-                f"\n{format_status_message('Test environment is ready', '✅', 'SUCCESS')}"
-            )
+            print(f"\n{format_status_message('Test environment is ready', '✅', 'SUCCESS')}")
             sys.exit(0)
         else:
-            print(
-                f"\n{format_status_message('Test environment validation failed', '❌', 'ERROR')}"
-            )
+            print(f"\n{format_status_message('Test environment validation failed', '❌', 'ERROR')}")
             sys.exit(1)
 
     if args.setup_only:
         print("Setting up test environment...")
         if setup_test_environment():
-            print(
-                format_status_message(
-                    "Test environment setup complete", "✅", "SUCCESS"
-                )
-            )
+            print(format_status_message('Test environment setup complete', '✅', 'SUCCESS'))
         else:
-            print(format_status_message("Test environment setup failed", "❌", "ERROR"))
+            print(format_status_message('Test environment setup failed', '❌', 'ERROR'))
             sys.exit(1)
 
     if args.cleanup_only:
         print("Cleaning up test environment...")
         if cleanup_test_environment():
-            print(
-                format_status_message(
-                    "Test environment cleanup complete", "✅", "SUCCESS"
-                )
-            )
+            print(format_status_message('Test environment cleanup complete', '✅', 'SUCCESS'))
             sys.exit(0)
         else:
-            print(
-                format_status_message("Test environment cleanup failed", "❌", "ERROR")
-            )
+            print(format_status_message('Test environment cleanup failed', '❌', 'ERROR'))
             sys.exit(1)
 
     # Validate test environment before running tests
@@ -752,15 +732,11 @@ Examples:
         failed_checks = [k for k, v in validation_results.items() if not v]
 
         if failed_checks:
-            print(
-                format_status_message(
-                    f"Environment validation failed: {failed_checks}", "❌", "ERROR"
-                )
-            )
+            print(format_status_message(f'Environment validation failed: {failed_checks}', '❌', 'ERROR'))
             print("Run with --setup-only to fix environment issues")
             sys.exit(1)
         else:
-            print(format_status_message("Test environment validated", "✅", "SUCCESS"))
+            print(format_status_message('Test environment validated', '✅', 'SUCCESS'))
 
     # Adjust configuration for fast mode
     if args.fast:
