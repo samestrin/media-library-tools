@@ -8,14 +8,16 @@ by removing unwanted tags, standardizing formats, and organizing files into dire
 
 Features:
 - Enhanced regex patterns for comprehensive tag removal
+- System trash cleanup (.DS_Store, Thumbs.db, etc.)
 - Standardizes resolution and year formats
 - Converts files to directory structure
 - File-based locking mechanism
 - Dry-run mode for safe testing
 - Cron-friendly operation
+- Global configuration via .env files
 
 Author: Media Library Tools Project
-Version: 2.0.0
+Version: 2.2.0
 """
 
 import argparse
@@ -26,11 +28,12 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-VERSION = "2.1.0"
+VERSION = "2.2.0"
 
 # ======================================================
 # {{include lib/core.py}}
 # {{include lib/ui.py}}
+# {{include lib/cleanup.py}}
 
 # ======================================================
 
@@ -39,12 +42,13 @@ class PlexDirectoryCorrector:
     """Main class for correcting Plex directory names."""
 
     def __init__(self, dry_run: bool = False, force: bool = False, max_items: int = 5,
-                 verbose: bool = False, debug: bool = False):
+                 verbose: bool = False, debug: bool = False, enable_cleanup: bool = False):
         self.dry_run = dry_run
         self.force = force
         self.max_items = max_items if dry_run else float('inf')
         self.verbose = verbose
         self.debug = debug
+        self.enable_cleanup = enable_cleanup
         self.processed_count = 0
         self.file_lock = FileLock('plex_correct_dirs')
 
@@ -242,8 +246,27 @@ class PlexDirectoryCorrector:
             print(f"DRY-RUN MODE - Limited to {self.max_items} items")
         print()
 
+        # System trash cleanup (if enabled)
+        if self.enable_cleanup:
+            if self.verbose:
+                print("Cleaning system trash files...")
+
+            cleaner = SystemTrashCleaner(verbose=self.verbose, dry_run=self.dry_run)
+            cleanup_count = cleaner.clean_directory(input_dir, recursive=True)
+
+            if self.verbose:
+                if self.dry_run:
+                    print(f"Would remove {cleanup_count} trash files\n")
+                else:
+                    print(f"Removed {cleanup_count} trash files\n")
+
         # Get immediate child entries (files and directories)
         entries = list(input_dir.iterdir())
+
+        # Filter out trash files if cleanup is enabled
+        if self.enable_cleanup:
+            cleaner = SystemTrashCleaner(verbose=False, dry_run=self.dry_run)
+            entries = [e for e in entries if not cleaner.is_trash_file(e)]
 
         for entry in entries:
             success, message = self.process_entry(entry)
@@ -267,17 +290,19 @@ Examples:
   %(prog)s /path/to/media --dry-run          # Preview changes in specific directory
   %(prog)s -y                                # Process current directory without confirmation
   %(prog)s /path/to/media -y                 # Process specific directory without confirmation
+  %(prog)s --cleanup --execute               # Clean trash files and execute
+  %(prog)s --verbose --cleanup --execute     # Show verbose output with cleanup
   %(prog)s --force                           # Force run in current directory (bypass lock)
-  %(prog)s --verbose                         # Show verbose output
   %(prog)s --debug                           # Show detailed debug output
 
 Global Configuration:
   Set AUTO_CONFIRM=true to skip confirmation prompts automatically
+  Set AUTO_CLEANUP=true to enable cleanup by default
   Set QUIET_MODE=true to suppress banner display
 
 Cron Usage:
-  # Run daily at 2 AM (non-interactive)
-  0 2 * * * /usr/local/bin/plex_correct_dirs /path/to/media -y
+  # Run daily at 2 AM with cleanup (non-interactive)
+  0 2 * * * /usr/local/bin/plex_correct_dirs /path/to/media --cleanup -y
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -320,6 +345,11 @@ Cron Usage:
         help='Show detailed debug output'
     )
     parser.add_argument(
+        '--cleanup',
+        action='store_true',
+        help='Clean system trash files (.DS_Store, Thumbs.db, etc.) before processing'
+    )
+    parser.add_argument(
         '--no-banner',
         action='store_true',
         help='Suppress banner display'
@@ -349,16 +379,19 @@ Cron Usage:
     # Read global configuration
     auto_execute = read_global_config_bool('AUTO_EXECUTE', False)
     auto_confirm = read_global_config_bool('AUTO_CONFIRM', False)
+    auto_cleanup = read_global_config_bool('AUTO_CLEANUP', False)
     quiet_mode = read_global_config_bool('QUIET_MODE', False)
 
     # Apply global configuration (CLI arguments take precedence)
     if auto_confirm and not args.yes:
         args.yes = True  # Set yes flag if AUTO_CONFIRM is set
+    if auto_cleanup and not args.cleanup:
+        args.cleanup = True  # Enable cleanup if AUTO_CLEANUP is set
 
     # Display banner (respecting suppression flags)
     display_banner(
         "Plex Directory Name Corrector",
-        "2.1.0",
+        VERSION,
         "Sanitize and organize Plex media directory names",
         args.no_banner,
         quiet_mode
@@ -374,7 +407,8 @@ Cron Usage:
         force=args.force,
         max_items=args.max_items,
         verbose=args.verbose,
-        debug=args.debug
+        debug=args.debug,
+        enable_cleanup=args.cleanup
     )
 
     try:
