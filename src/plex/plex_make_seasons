@@ -28,6 +28,8 @@ three-phase processing: consolidation, organization, and optional archiving.
 
 Features:
 - Three-phase processing: consolidation → organization → archive
+- Enhanced UI with progress bars and phase tracking (v3.2.0)
+- Real-time progress indicators for long operations (v3.2.0)
 - System trash cleanup (.DS_Store, Thumbs.db, etc.)
 - Sample file detection with configurable size threshold
 - Directory exclusion with pattern matching
@@ -41,7 +43,7 @@ Features:
 - Global configuration via .env files
 
 Author: Media Library Tools Project
-Version: 3.1.0
+Version: 3.2.0
 """
 
 import argparse
@@ -54,7 +56,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Union
 
-VERSION = "3.1.0"
+VERSION = "3.2.0"
 
 # ======================================================
 # {{include utils.py}}
@@ -62,6 +64,10 @@ VERSION = "3.1.0"
 
 # ======================================================
 # {{include lib/cleanup.py}}
+
+
+# ======================================================
+# {{include lib/ui.py}}
 
 
 # ======================================================
@@ -706,7 +712,7 @@ class SeasonOrganizer:
         return result
 
     def process_directory(self, source_dir: Path) -> bool:
-        """Execute full three-phase processing workflow."""
+        """Execute full three-phase processing workflow with progress tracking."""
         if not source_dir.exists():
             print(f"Error: Directory '{source_dir}' does not exist.")
             return False
@@ -729,8 +735,22 @@ class SeasonOrganizer:
         print()
 
         try:
+            # Initialize phase progress tracker for execute mode
+            phase_tracker = None
+            if not self.config.dry_run:
+                phases = ["Phase 1: Consolidation", "Phase 2: Organization"]
+                if self.config.enable_archive:
+                    phases.append("Phase 3: Archive")
+                phase_tracker = PhaseProgressTracker(phases)
+
             # Phase 1: Consolidation
+            if phase_tracker:
+                phase_tracker.start_phase(0)
+
             consolidation_result = self.consolidate(source_dir)
+
+            if phase_tracker:
+                phase_tracker.complete_phase(0)
 
             if self.config.dry_run:
                 self.print_dry_run_preview(consolidation_result)
@@ -740,17 +760,38 @@ class SeasonOrganizer:
 
             if not consolidation_result['content_files']:
                 print("\nNo content files to organize.")
+                if phase_tracker:
+                    phase_tracker.display_summary()
                 return True
 
             # Phase 2: Organization
+            if phase_tracker:
+                phase_tracker.start_phase(1, total_items=len(consolidation_result['content_files']))
+
             organization_result = self.organize(consolidation_result, target_dir)
+
+            if phase_tracker:
+                phase_tracker.complete_phase(1)
+
             self.print_organization_summary(organization_result)
 
             # Phase 3: Archive (if enabled)
             archive_result = None
             if self.config.enable_archive:
+                if phase_tracker:
+                    sample_count = len(consolidation_result.get('sample_files', []))
+                    phase_tracker.start_phase(2, total_items=sample_count)
+
                 archive_result = self.archive(consolidation_result, target_dir)
+
+                if phase_tracker:
+                    phase_tracker.complete_phase(2)
+
                 self.print_archive_summary(archive_result)
+
+            # Display phase summary
+            if phase_tracker:
+                phase_tracker.display_summary()
 
             # Final summary
             self.print_final_summary(consolidation_result, organization_result, archive_result)
