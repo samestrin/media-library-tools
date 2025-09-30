@@ -71,6 +71,10 @@ VERSION = "3.2.0"
 
 
 # ======================================================
+# {{include lib/season_detection.py}}
+
+
+# ======================================================
 
 
 class Configuration:
@@ -181,10 +185,13 @@ class DirectoryExclusionMatcher:
         return False
 
 
-class SeasonOrganizer:
+class SeasonOrganizer(BaseSeasonDetector):
     """Enhanced season organizer with three-phase processing."""
 
     def __init__(self, config: Configuration):
+        # Initialize base season detector
+        super().__init__(config={})
+
         self.config = config
         self.file_lock = FileLock('plex_make_seasons')
 
@@ -195,46 +202,8 @@ class SeasonOrganizer:
             '.xvid', '.rm', '.rmvb', '.asf', '.f4v', '.m4p'
         }
 
-        # Season detection patterns (ordered by specificity)
-        self.season_patterns = [
-            # Standard patterns: S01E01, S1E1, etc. (highest priority)
-            (r'[Ss](\d{1,2})[Ee]\d{1,3}', 'S{:02d}E format'),
-            (r'[Ss]eason[\s\._-]*(\d{1,2})', 'Season X format'),
-
-            # Extended season patterns (high priority)
-            (r'[Ss](\d{3,4})[Ee]\d{1,3}', 'Extended season S###/####E## format'),
-            (r'[Ss]eason[\s\._-]*(\d{3,4})', 'Extended Season #### format'),
-
-            # Enhanced alternative patterns (medium-high priority)
-            (r'(\d{1,3})x\d{1,3}', 'Enhanced season #x# format'),
-            (r'[Ss](\d{1,4})\D', 'Enhanced S# format'),
-
-            # Numeric-only patterns (medium priority)
-            (r'(?:ep|episode)[\s\-_.]*(\d{1,2})(?:[^\d]|$)', 'Episode-prefixed numeric format'),
-            (r'(?:^|[\s\-_.])[^\d]*[\s\-_.](\d{1,2})[\s\-_.](?!\d*(?:p|fps|kbps))', 'Separated numeric format'),
-
-            # Year-based seasons (for some shows)
-            (r'[\(\[]?(20\d{2})[\)\]]?', 'Year format'),
-
-            # Episode numbering patterns
-            (r'[Ee]pisode[\s\._-]*(\d{1,3})', 'Episode X format'),
-            (r'[Ee]p[\s\._-]*(\d{1,3})', 'Ep X format'),
-
-            # Part/Chapter patterns
-            (r'[Pp]art[\s\._-]*(\d{1,2})', 'Part X format'),
-            (r'[Cc]hapter[\s\._-]*(\d{1,2})', 'Chapter X format'),
-
-            # Disc patterns
-            (r'[Dd]isc[\s\._-]*(\d{1,2})', 'Disc X format'),
-            (r'[Dd](\d{1,2})', 'D1 format'),
-
-            # Volume patterns
-            (r'[Vv]ol[\s\._-]*(\d{1,2})', 'Vol X format'),
-            (r'[Vv](\d{1,2})', 'V1 format'),
-        ]
-
-        # Statistics tracking
-        self.stats = {
+        # Statistics tracking (extends base stats)
+        self.stats.update({
             'total_files': 0,
             'video_files': 0,
             'content_files': 0,
@@ -245,9 +214,8 @@ class SeasonOrganizer:
             'seasons_detected': 0,
             'conflicts_detected': 0,
             'samples_archived': 0,
-            'season_patterns_found': {},
             'errors': []
-        }
+        })
 
         # Directory exclusion matcher
         self.exclusion_matcher = DirectoryExclusionMatcher(config.ignore_dirs) if config.ignore_dirs else None
@@ -315,121 +283,20 @@ class SeasonOrganizer:
 
         return content_files, sample_files
 
-    def validate_numeric_season(self, filename: str, match_text: str, season_num: int,
-                              pattern_desc: str) -> Tuple[bool, float]:
-        """Validate that a numeric match represents a season."""
-        confidence = 0.0
-
-        # Quality indicator detection
-        quality_patterns = [
-            r'720p', r'1080p', r'480p', r'2160p', r'4K',
-            r'\d+kbps', r'\d+fps', r'HDR', r'DTS', r'AC3',
-            r'H\.?264', r'H\.?265', r'x264', r'x265',
-            r'HEVC', r'AVC', r'BluRay', r'WEBRip', r'DVDRip'
-        ]
-
-        filename_lower = filename.lower()
-        for pattern in quality_patterns:
-            if re.search(pattern, filename_lower, re.IGNORECASE):
-                return False, 0.0
-
-        # Position validation
-        match_pos = filename.find(match_text)
-        filename_length = len(filename)
-        relative_position = match_pos / filename_length if filename_length > 0 else 0
-
-        if relative_position > 0.8:
-            confidence -= 0.5
-        elif relative_position < 0.3:
-            confidence += 0.3
-
-        # Range validation
-        if 'Extended' in pattern_desc:
-            if not (100 <= season_num <= 2050):
-                return False, 0.0
-            confidence += 0.4
-        elif 'numeric' in pattern_desc.lower():
-            if not (1 <= season_num <= 50):
-                return False, 0.0
-            confidence += 0.2
-        elif 'Enhanced' in pattern_desc:
-            if not (1 <= season_num <= 500):
-                return False, 0.0
-            confidence += 0.3
-
-        # Context character analysis
-        context_start = max(0, match_pos - 3)
-        context_end = min(filename_length, match_pos + len(match_text) + 3)
-        context = filename[context_start:context_end].lower()
-
-        positive_indicators = ['ep', 'episode', 'season', 'series', '-', '_', '.', ' ']
-        negative_indicators = ['p', 'fps', 'kbps', 'bit', 'mb', 'gb']
-
-        for indicator in positive_indicators:
-            if indicator in context:
-                confidence += 0.1
-
-        for indicator in negative_indicators:
-            if indicator in context:
-                confidence -= 0.2
-
-        # Filename structure analysis
-        if any(sep in filename for sep in [' - ', '.', '_', 'S0', 's0', 'Season', 'season']):
-            confidence += 0.2
-
-        confidence = max(0.0, min(1.0, confidence))
-
-        min_confidence = 0.3 if 'numeric' in pattern_desc.lower() else 0.2
-
-        return confidence >= min_confidence, confidence
-
     def extract_season_info(self, filename: str) -> Tuple[Optional[int], str, str]:
-        """Extract season information from filename."""
-        for pattern, description in self.season_patterns:
-            match = re.search(pattern, filename, re.IGNORECASE)
-            if match:
-                try:
-                    season_num = int(match.group(1))
-                    matched_text = match.group(0)
+        """Extract season information from filename with target season filtering.
 
-                    # Season filtering if target_season is set
-                    if self.config.target_season is not None:
-                        if season_num != self.config.target_season:
-                            continue  # Skip non-matching seasons
+        Extends base implementation with plex_make_seasons-specific filtering logic.
+        """
+        # Call base implementation
+        season_num, description, matched_text = super().extract_season_info(filename)
 
-                    # Pattern-specific validation
-                    if 'Year format' in description:
-                        if season_num >= 1990:
-                            return season_num, description, matched_text
-                    elif 'Extended' in description:
-                        if 100 <= season_num <= 2050:
-                            return season_num, description, matched_text
-                    elif 'numeric' in description.lower():
-                        is_valid, confidence = self.validate_numeric_season(
-                            filename, matched_text, season_num, description)
-                        if is_valid:
-                            return season_num, description, matched_text
-                    elif 'Enhanced' in description:
-                        if 'S#' in description and 1 <= season_num <= 2050:
-                            return season_num, description, matched_text
-                        elif '#x#' in description and 1 <= season_num <= 500:
-                            return season_num, description, matched_text
-                    elif 1 <= season_num <= 50:
-                        return season_num, description, matched_text
+        # Apply target season filtering if configured
+        if season_num is not None and self.config.target_season is not None:
+            if season_num != self.config.target_season:
+                return None, "Filtered by target_season", ""
 
-                except (ValueError, IndexError):
-                    continue
-
-        return None, "No pattern matched", ""
-
-    def generate_season_directory_name(self, season_num: int, pattern_desc: str) -> str:
-        """Generate season directory name based on season number and pattern."""
-        if 'Year format' in pattern_desc:
-            return f"Season {season_num}"
-        elif 'Extended' in pattern_desc or season_num >= 100:
-            return f"Season {season_num}"
-        else:
-            return f"Season {season_num:02d}"
+        return season_num, description, matched_text
 
     def handle_file_collision(self, target_file: Path) -> Path:
         """Handle file name collisions by generating unique names."""
@@ -1153,9 +1020,13 @@ Cron Usage:
     config.depth = args.depth
     config.dry_run_level = args.dry_run_level
 
+    # Handle dry-run vs execute mode
     if args.execute:
         config.execute = True
         config.dry_run = False
+    else:
+        # Explicitly set dry_run based on the argument (default is True)
+        config.dry_run = args.dry_run
 
     if args.sample_detect:
         config.enable_sample_detection = True
