@@ -1,19 +1,40 @@
-# Plex Make Seasons
+# Plex Make Seasons v3.1.0
 
 ## Overview
 
-A Python tool for organizing TV show episodes into season-specific directories. This script analyzes video filenames to extract season information and automatically creates proper season directory structures that are ideal for Plex media organization.
+A sophisticated Python tool for organizing TV show episodes into season-specific directories using a comprehensive three-phase processing system. The enhanced version includes sample file detection, configurable directory exclusions, conflict resolution, and manifest-based rollback capability.
 
-## Features
+## What's New in v3.1.0
 
-- **Intelligent season detection**: Supports various season naming conventions (S01E01, 1x01, Season 1, etc.)
+Enhanced plex_make_seasons now provides enterprise-grade file management with three distinct processing phases:
+
+**Phase 1: Consolidation** - Discover and analyze files without making changes
+**Phase 2: Organization** - Create season directories and move files with conflict resolution
+**Phase 3: Archive** - Archive sample files and create rollback manifests
+
+### Key Enhancements
+
+- **Three-Phase Architecture**: Consolidation → Organization → Archive workflow
+- **Sample File Detection**: Configurable size threshold (default: 50MB) to identify and handle sample files
+- **Directory Exclusion**: Pattern-based exclusion (e.g., "Extras", "Samples") with partial matching
+- **Enhanced Conflict Resolution**: Size-based automatic resolution with user confirmation
+- **Rollback Capability**: Manifest-based system to undo operations if needed
+- **Tiered Dry-Run Output**: Three detail levels (basic, detailed, comprehensive)
+- **System Trash Cleanup**: Automatic removal of .DS_Store, Thumbs.db, and system files
+- **Advanced Configuration**: Multi-layer configuration via CLI, environment variables, and .env files
+- **19 Season Detection Patterns**: Including extended season numbers (S001-S999)
+
+## Core Features
+
+- **Intelligent season detection**: Supports 19 season naming conventions (S01E01, 1x01, Season 1, etc.)
+- **Extended season support**: Handles season numbers 1-999 for long-running shows
+- **Sample file management**: Automatically detect and optionally archive small sample files
+- **Directory exclusion**: Exclude specific directories from processing
 - **Flexible matching**: Handles different separators, cases, and formatting styles
-- **Year-based seasons**: Recognizes year-based season patterns for certain shows
-- **Episode numbering**: Detects episode, part, chapter, disc, and volume patterns
 - **File organization**: Automatic directory creation with smart file movement and collision handling
 - **Target directory support**: Option to organize files in a different location
 - **Video file filtering**: Processes only video files, ignoring other file types
-- **Safety features**: File-based locking, dry-run mode, error recovery, and progress tracking
+- **Safety features**: File-based locking, tiered dry-run modes, error recovery, and rollback capability
 - **Cron-friendly**: Non-interactive operation with comprehensive logging and proper exit codes
 - **Self-contained**: Uses only Python standard library modules
 - **Zero installation**: Download, chmod +x, and run immediately
@@ -28,50 +49,118 @@ chmod +x plex_make_seasons
 
 ## Usage
 
-### Basic usage
-```bash
-# Organize episodes in current directory
-./plex_make_seasons.py /path/to/tv/show
+### Quick Start
 
-# Preview changes first
-./plex_make_seasons.py /path/to/tv/show --dry-run
+```bash
+# Preview what would be organized (dry-run mode - default)
+./plex_make_seasons /path/to/tv/show
+
+# Actually perform the organization
+./plex_make_seasons --execute /path/to/tv/show
+
+# Organize with automatic confirmation (cron-friendly)
+./plex_make_seasons --execute -y /path/to/tv/show
+```
+
+### Common Scenarios
+
+```bash
+# Organize a specific season
+./plex_make_seasons --execute -s 1 /path/to/show
+
+# Exclude directories and enable sample detection
+./plex_make_seasons --execute --sample-detect --ignore-dir "Extras,Samples" /path/to/show
+
+# Comprehensive preview with all details
+./plex_make_seasons --dry-run-level comprehensive /path/to/show
+
+# Enable sample detection and archiving with cleanup
+./plex_make_seasons --execute --sample-detect --archive --cleanup /path/to/show
 ```
 
 ### Automation
+
 ```bash
-# Run daily at 3 AM
-0 3 * * * /usr/local/bin/plex_make_seasons.py /path/to/downloads
+# Run daily at 3 AM with cleanup (non-interactive)
+0 3 * * * /usr/local/bin/plex_make_seasons --execute -y --cleanup /path/to/downloads
 ```
 
-## Command-line options
+## Command-Line Arguments
+
+### Standard Arguments
 
 ```
-Usage: plex_make_seasons.py [OPTIONS] [DIRECTORY]
-
-Arguments:
-  DIRECTORY                 Directory containing TV show episodes (default: current directory)
-
-Options:
-  --target TARGET          Target directory for organized files (default: same as source)
-  --dry-run               Show what would be done without making changes
-  --force                 Force execution even if another instance is running
-  --list-patterns         Show all supported season detection patterns
-  --no-banner             Suppress banner display
-  --verbose, -v           Show detailed processing information
-  --debug                 Show debug information for troubleshooting
-  --version               Show version information
-  --help, -h              Show this help message
+--execute               Actually perform operations (default: dry-run mode)
+-y, --yes              Skip confirmation prompts (for non-interactive/cron use)
+--verbose, -v          Show verbose output with detailed progress
+--debug                Show detailed debug output for troubleshooting
+--force                Force execution even if another instance is running
+--version              Show version information and exit
+--no-banner            Suppress banner display
 ```
 
-## Global Configuration Support
+### Enhanced Arguments (New in v3.1.0)
 
-The tool respects environment variables for default behavior:
+```
+-s, --season N         Process only specified season number
+--ignore-dir DIRS      Comma-separated list of directory names to exclude
+--sample-detect        Enable automatic sample file detection
+--sample-threshold N   Sample file size threshold in MB (default: 50)
+--archive              Enable sample file archiving with manifest
+--cleanup              Clean system trash files (.DS_Store, Thumbs.db, etc.)
+--depth N              Maximum directory depth for recursive processing (default: 3)
+--dry-run-level LEVEL  Dry-run detail level: basic, detailed, comprehensive (default: basic)
+```
 
-- `AUTO_EXECUTE=true` - Default to execute mode instead of dry-run
-- `AUTO_CONFIRM=true` - Skip confirmation prompts automatically
-- `QUIET_MODE=true` - Suppress banner display by default
+### Phase Control Arguments (New in v3.1.0)
 
-Configuration hierarchy: CLI arguments > Environment variables > Local .env > Global ~/.media-library-tools/.env
+```
+--consolidate-only     Execute only consolidation phase (file discovery)
+--organize-only        Execute only organization phase (season creation)
+--archive-only         Execute only archive phase (sample archiving)
+--no-archive           Skip archive phase entirely
+```
+
+## Configuration Management
+
+### Configuration Hierarchy
+
+Configuration is loaded in order of priority (highest to lowest):
+
+1. **Command-line arguments** (highest priority)
+2. **Environment variables** (PLEX_*, AUTO_*)
+3. **.env file** in current directory
+4. **.env file** in `~/.media-library-tools/`
+5. **Built-in defaults** (lowest priority)
+
+### Environment Variables
+
+```bash
+# Global execution settings
+AUTO_EXECUTE=true        # Automatically execute without --execute flag
+AUTO_CONFIRM=true        # Automatically confirm without -y flag
+
+# Sample detection settings
+PLEX_SAMPLE_DETECTION=true   # Enable sample detection by default
+PLEX_SAMPLE_THRESHOLD=50     # Default sample threshold in MB
+```
+
+### Example .env File
+
+Create `~/.media-library-tools/.env` for global defaults:
+
+```bash
+# Execution settings
+AUTO_EXECUTE=false
+AUTO_CONFIRM=false
+
+# Sample detection
+PLEX_SAMPLE_DETECTION=true
+PLEX_SAMPLE_THRESHOLD=50
+
+# Directory exclusions (comma-separated)
+PLEX_IGNORE_DIRS=Extras,Samples,Bonus,Behind the Scenes
+```
 
 ## Season detection patterns
 
@@ -297,6 +386,23 @@ If files aren't being recognized:
 - **Error isolation**: Failures in one file don't affect others
 
 ## Version History
+
+### Version 3.1.0 (Current - Sprint 9.0)
+- **Three-Phase Processing Architecture**: Consolidation → Organization → Archive
+- **Sample File Detection**: Configurable size threshold with automatic identification
+- **Directory Exclusion**: Pattern-based exclusion with partial matching
+- **Enhanced Conflict Resolution**: Size-based automatic resolution with user confirmation
+- **Rollback Capability**: Manifest-based system for operation recovery
+- **Tiered Dry-Run Output**: Three levels (basic, detailed, comprehensive)
+- **System Trash Cleanup**: Automatic removal of OS-specific junk files
+- **Advanced Configuration**: Multi-layer hierarchy with .env support
+- **Extended Season Support**: Season numbers 1-999 for long-running shows
+- **19 Season Detection Patterns**: Including extended formats and validation
+- **Phase Control**: Run individual phases independently
+- **Archive System**: Sample file archiving with JSON manifests
+- **Enhanced CLI**: New arguments for sample detection, exclusions, and phase control
+- **Improved Error Handling**: Comprehensive validation and user feedback
+- **Performance Optimization**: Configurable depth control and efficient traversal
 
 ### Version 2.0.0
 - Complete rewrite in Python from bash
