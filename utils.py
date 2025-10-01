@@ -28,13 +28,20 @@ if str(lib_path) not in sys.path:
 # Import all functions from modular libraries
 try:
     from core import (
+        ConfigCache,
         FileLock,
         acquire_lock,
+        debug_config_resolution,
+        get_config_source,
         is_non_interactive,
         is_windows,
+        read_config_bool,
+        read_config_value,
         read_global_config_bool,
+        read_local_env_file,
         release_lock,
         should_use_emojis,
+        validate_config_setup,
     )
     from filesystem import (
         get_directory_size,
