@@ -36,6 +36,319 @@ except ImportError:
     msvcrt = None  # Unix/Linux/macOS
 
 
+# =============================================================================
+# Environment Variable Namespace Migration
+# =============================================================================
+
+# Migration map for environment variable namespace (Legacy → MLT_)
+MIGRATION_MAP = {
+    # API Credentials (6 variables)
+    'TVDB_API_KEY': 'MLT_TVDB_API_KEY',
+    'PLEX_TOKEN': 'MLT_PLEX_TOKEN',
+    'PLEX_SERVER': 'MLT_PLEX_SERVER',
+    'OPENAI_API_KEY': 'MLT_OPENAI_API_KEY',
+    'OPENAI_API_BASE_URL': 'MLT_OPENAI_API_BASE_URL',
+    'OPENAI_API_MODEL': 'MLT_OPENAI_API_MODEL',
+
+    # Automation Settings (4 variables)
+    'AUTO_EXECUTE': 'MLT_AUTO_EXECUTE',
+    'AUTO_CONFIRM': 'MLT_AUTO_CONFIRM',
+    'QUIET_MODE': 'MLT_QUIET_MODE',
+    'AUTO_CLEANUP': 'MLT_AUTO_CLEANUP',
+
+    # Debug and Logging (4 variables)
+    'DEBUG': 'MLT_DEBUG',
+    'VERBOSE': 'MLT_VERBOSE',
+    'PLEX_DEBUG': 'MLT_PLEX_DEBUG',
+    'NO_EMOJIS': 'MLT_NO_EMOJIS',
+
+    # Testing Configuration (7 variables)
+    'TEST_VERBOSE': 'MLT_TEST_VERBOSE',
+    'TEST_DEBUG': 'MLT_TEST_DEBUG',
+    'TEST_CLEANUP': 'MLT_TEST_CLEANUP',
+    'PRESERVE_FIXTURES': 'MLT_PRESERVE_FIXTURES',
+    'MAX_TEST_DIRS': 'MLT_MAX_TEST_DIRS',
+    'TEST_TIMEOUT': 'MLT_TEST_TIMEOUT',
+    'LARGE_FILE_THRESHOLD': 'MLT_LARGE_FILE_THRESHOLD',
+
+    # Legacy Variables (2 variables)
+    'MAX_FILES': 'MLT_MAX_FILES',
+    'LOG_LEVEL': 'MLT_LOG_LEVEL'
+}
+
+# Reverse map for efficient lookup (MLT_ → Legacy)
+REVERSE_MIGRATION_MAP = {v: k for k, v in MIGRATION_MAP.items()}
+
+# Module-level tracking of shown warnings (one per session)
+_shown_deprecation_warnings = set()
+_deprecation_warnings_suppressed = None  # Cache the suppression setting
+
+
+# =============================================================================
+# Deprecation Warning System
+# =============================================================================
+
+def _should_show_deprecation_warnings() -> bool:
+    """
+    Determine if deprecation warnings should be displayed.
+
+    Warnings are suppressed in non-interactive environments and when
+    MLT_SUPPRESS_DEPRECATION_WARNINGS is set.
+
+    Returns:
+        bool: True if warnings should be shown, False otherwise
+    """
+    global _deprecation_warnings_suppressed
+
+    # Cache the result to avoid repeated environment variable lookups
+    if _deprecation_warnings_suppressed is None:
+        # Check suppression environment variable
+        suppress = os.environ.get('MLT_SUPPRESS_DEPRECATION_WARNINGS', '').lower()
+        _deprecation_warnings_suppressed = suppress in ('true', '1', 'yes', 'on')
+
+    # Don't show in non-interactive environments (defined later in this file)
+    # We'll check this on every call since is_non_interactive() is cheap
+    if is_non_interactive():
+        return False
+
+    return not _deprecation_warnings_suppressed
+
+
+def _show_deprecation_warning(legacy_var: str, mlt_var: str, source: str = 'environment') -> None:
+    """
+    Display deprecation warning for legacy variable usage.
+
+    Warnings are shown only once per variable per session and respect
+    the suppression flag and non-interactive environment detection.
+
+    Args:
+        legacy_var: Legacy variable name (e.g., 'AUTO_EXECUTE')
+        mlt_var: New MLT_ prefixed variable name (e.g., 'MLT_AUTO_EXECUTE')
+        source: Source of the variable (e.g., 'environment', 'file_mlt', 'env_legacy')
+    """
+    # Only show each warning once per session
+    warning_key = f"{legacy_var}:{source}"
+    if warning_key in _shown_deprecation_warnings:
+        return
+
+    _shown_deprecation_warnings.add(warning_key)
+
+    # Don't show if suppressed or in non-interactive mode
+    if not _should_show_deprecation_warnings():
+        return
+
+    # Format source for user-friendly display
+    source_display = source.replace('_', ' ')
+
+    # Display warning to stderr with clear guidance
+    print(f"Warning: Using legacy environment variable '{legacy_var}' from {source_display}.",
+          file=sys.stderr)
+    print(f"         Please migrate to '{mlt_var}' for future compatibility.",
+          file=sys.stderr)
+    print(f"         Legacy support will be removed in a future version.",
+          file=sys.stderr)
+    print(f"         Set MLT_SUPPRESS_DEPRECATION_WARNINGS=true to hide these warnings.",
+          file=sys.stderr)
+
+
+# =============================================================================
+# Configuration Resolution Core
+# =============================================================================
+
+def _resolve_config_with_namespace(
+    key: str,
+    cli_args: Optional[argparse.Namespace] = None,
+    local_env_path: Optional[str] = None
+) -> Tuple[Any, str]:
+    """
+    Resolve configuration value with namespace support.
+
+    Priority Order:
+    1. CLI Arguments (MLT_ then legacy)
+    2. MLT_ Environment Variables
+    3. Legacy Environment Variables (with deprecation)
+    4. MLT_ Local .env File Variables
+    5. Legacy Local .env File Variables (with deprecation)
+    6. MLT_ Global .env File Variables
+    7. Legacy Global .env File Variables (with deprecation)
+    8. Not Found
+
+    Args:
+        key: Base key without MLT_ prefix (e.g., 'AUTO_EXECUTE')
+        cli_args: Parsed CLI arguments
+        local_env_path: Path to local .env file
+
+    Returns:
+        Tuple of (value, source) where source indicates where value was found:
+        - 'cli_mlt': CLI argument with MLT_ prefix
+        - 'cli_legacy': CLI argument with legacy name
+        - 'env_mlt': Environment variable with MLT_ prefix
+        - 'env_legacy': Environment variable with legacy name
+        - 'file_mlt': Local .env file with MLT_ prefix
+        - 'file_legacy': Local .env file with legacy name
+        - 'global_mlt': Global .env file with MLT_ prefix
+        - 'global_legacy': Global .env file with legacy name
+        - 'not_found': Value not found in any source
+    """
+    mlt_key = f"MLT_{key}"
+    legacy_key = key
+
+    # 1. Check CLI arguments (highest priority)
+    if cli_args is not None:
+        # Try MLT_ attribute first
+        cli_attr_mlt = mlt_key.lower()
+        if hasattr(cli_args, cli_attr_mlt):
+            value = getattr(cli_args, cli_attr_mlt)
+            if value is not None:
+                return (value, 'cli_mlt')
+
+        # Try legacy attribute
+        cli_attr_legacy = legacy_key.lower()
+        if hasattr(cli_args, cli_attr_legacy):
+            value = getattr(cli_args, cli_attr_legacy)
+            if value is not None:
+                return (value, 'cli_legacy')
+
+    # 2. Check MLT_ environment variable
+    value = os.environ.get(mlt_key)
+    if value is not None:
+        return (value, 'env_mlt')
+
+    # 3. Check legacy environment variable
+    value = os.environ.get(legacy_key)
+    if value is not None:
+        return (value, 'env_legacy')
+
+    # 4. Check local .env file (both MLT_ and legacy)
+    local_env = read_local_env_file(local_env_path, use_cache=True)
+    if mlt_key in local_env:
+        return (local_env[mlt_key], 'file_mlt')
+
+    if legacy_key in local_env:
+        return (local_env[legacy_key], 'file_legacy')
+
+    # 5. Check global .env file (both MLT_ and legacy)
+    global_env_path = str(Path.home() / ".media-library-tools" / ".env")
+    global_env = read_local_env_file(global_env_path, use_cache=True)
+    if mlt_key in global_env:
+        return (global_env[mlt_key], 'global_mlt')
+
+    if legacy_key in global_env:
+        return (global_env[legacy_key], 'global_legacy')
+
+    # 6. Not found in any source
+    return (None, 'not_found')
+
+
+def read_config_value_with_namespace(
+    key: str,
+    cli_args: Optional[argparse.Namespace] = None,
+    default: Optional[Union[str, bool, int]] = None,
+    value_type: str = 'str',
+    local_env_path: Optional[str] = None,
+    show_deprecation: bool = True
+) -> Union[str, bool, int, None]:
+    """
+    Read configuration value with MLT_ namespace support and backward compatibility.
+
+    This is the primary configuration reading function that should be used by all tools.
+    It supports both new MLT_ prefixed variables and legacy variables with deprecation warnings.
+
+    Priority Order:
+    1. CLI Arguments (highest priority)
+    2. MLT_ Environment Variables
+    3. Legacy Environment Variables (with deprecation)
+    4. MLT_ .env File Variables
+    5. Legacy .env File Variables (with deprecation)
+    6. Default Value (if provided)
+
+    Args:
+        key: Configuration key WITHOUT MLT_ prefix (e.g., 'AUTO_EXECUTE', not 'MLT_AUTO_EXECUTE')
+        cli_args: Parsed CLI arguments namespace
+        default: Default value if not found in any source
+        value_type: Type conversion ('str', 'bool', 'int')
+        local_env_path: Path to local .env file (defaults to current directory)
+        show_deprecation: Show deprecation warning for legacy variable usage
+
+    Returns:
+        Configuration value with proper type conversion, or default if not found
+
+    Examples:
+        >>> # Read boolean with CLI priority
+        >>> debug = read_config_value_with_namespace('DEBUG', cli_args=args, default=False, value_type='bool')
+
+        >>> # Read API key
+        >>> api_key = read_config_value_with_namespace('OPENAI_API_KEY', default='')
+
+        >>> # Read with custom .env path
+        >>> verbose = read_config_value_with_namespace('VERBOSE', local_env_path='/path/to/.env', value_type='bool')
+    """
+    # Resolve value with namespace support
+    raw_value, source = _resolve_config_with_namespace(key, cli_args, local_env_path)
+
+    # Show deprecation warning if using legacy variable
+    if raw_value is not None and 'legacy' in source and show_deprecation:
+        mlt_key = f"MLT_{key}"
+        _show_deprecation_warning(key, mlt_key, source)
+
+    # Use default if not found
+    if raw_value is None:
+        return default
+
+    # Type conversion
+    if value_type == 'bool':
+        return str(raw_value).lower() in ('true', '1', 'yes', 'on')
+    elif value_type == 'int':
+        try:
+            return int(raw_value)
+        except (ValueError, TypeError):
+            return default
+    else:  # str
+        return str(raw_value)
+
+
+def read_config_bool_with_namespace(
+    key: str,
+    cli_args: Optional[argparse.Namespace] = None,
+    default: bool = False,
+    local_env_path: Optional[str] = None,
+    show_deprecation: bool = True
+) -> bool:
+    """
+    Convenience function for reading boolean configuration values with namespace support.
+
+    This is a wrapper around read_config_value_with_namespace() optimized for boolean values.
+
+    Args:
+        key: Configuration key WITHOUT MLT_ prefix (e.g., 'AUTO_EXECUTE')
+        cli_args: Parsed CLI arguments namespace
+        default: Default boolean value
+        local_env_path: Path to local .env file
+        show_deprecation: Show deprecation warning for legacy variables
+
+    Returns:
+        Boolean configuration value
+
+    Examples:
+        >>> # Read debug flag
+        >>> debug = read_config_bool_with_namespace('DEBUG', cli_args=args)
+
+        >>> # Read with default True
+        >>> auto_exec = read_config_bool_with_namespace('AUTO_EXECUTE', default=True)
+
+        >>> # Suppress deprecation warnings
+        >>> quiet = read_config_bool_with_namespace('QUIET_MODE', show_deprecation=False)
+    """
+    result = read_config_value_with_namespace(
+        key, cli_args, default, 'bool', local_env_path, show_deprecation
+    )
+    return bool(result)
+
+
+# =============================================================================
+# Core Utility Functions
+# =============================================================================
+
 def is_non_interactive() -> bool:
     """
     Detect if running in non-interactive environment (cron, etc.).
@@ -256,50 +569,16 @@ def read_config_value(
         >>> # Read string config without CLI args
         >>> api_key = read_config_value('API_KEY', default='', value_type='str')
     """
-    raw_value = None
-
-    # 1. Check CLI arguments (highest priority)
-    if cli_args is not None:
-        # Try both exact key and lowercase version
-        cli_attr = key.lower() if hasattr(cli_args, key.lower()) else key
-        if hasattr(cli_args, cli_attr):
-            cli_value = getattr(cli_args, cli_attr)
-            if cli_value is not None:
-                raw_value = str(cli_value)
-
-    # 2. Check environment variable
-    if raw_value is None:
-        env_value = os.environ.get(key)
-        if env_value is not None:
-            raw_value = env_value
-
-    # 3. Check local .env file
-    if raw_value is None:
-        local_env = read_local_env_file(local_env_path)
-        if key in local_env:
-            raw_value = local_env[key]
-
-    # 4. Check global .env file
-    if raw_value is None:
-        global_env_path = str(Path.home() / ".media-library-tools" / ".env")
-        global_env = read_local_env_file(global_env_path)
-        if key in global_env:
-            raw_value = global_env[key]
-
-    # Use default if not found anywhere
-    if raw_value is None:
-        return default
-
-    # Type conversion
-    if value_type == 'bool':
-        return raw_value.lower() in ('true', '1', 'yes', 'on')
-    elif value_type == 'int':
-        try:
-            return int(raw_value)
-        except (ValueError, TypeError):
-            return default
-    else:  # str
-        return raw_value
+    # Delegate to namespace-aware function for backward compatibility
+    # This maintains the same behavior but adds MLT_ namespace support
+    return read_config_value_with_namespace(
+        key=key,
+        cli_args=cli_args,
+        default=default,
+        value_type=value_type,
+        local_env_path=local_env_path,
+        show_deprecation=True
+    )
 
 
 def read_config_bool(
@@ -311,11 +590,14 @@ def read_config_bool(
     """
     Read boolean configuration value following CLI > ENV > Local .env > Global .env priority.
 
-    Convenience wrapper around read_config_value for boolean values.
+    UPDATED: This function now delegates to read_config_bool_with_namespace() which
+    supports both MLT_ prefixed and legacy environment variables with backward compatibility.
+
+    Convenience wrapper for boolean values.
     Supports: true/false, yes/no, on/off, 1/0 (case-insensitive)
 
     Args:
-        key: Configuration key to read
+        key: Configuration key to read (WITHOUT MLT_ prefix)
         cli_args: Parsed CLI arguments namespace
         default: Default value if not found (default: False)
         local_env_path: Path to local .env file (defaults to current directory)
@@ -330,14 +612,14 @@ def read_config_bool(
         >>> # Read auto-confirm setting
         >>> auto_confirm = read_config_bool('AUTO_CONFIRM', default=False)
     """
-    result = read_config_value(
+    # Delegate to namespace-aware function for backward compatibility
+    return read_config_bool_with_namespace(
         key=key,
         cli_args=cli_args,
         default=default,
-        value_type='bool',
-        local_env_path=local_env_path
+        local_env_path=local_env_path,
+        show_deprecation=True
     )
-    return bool(result)
 
 
 def get_config_source(
