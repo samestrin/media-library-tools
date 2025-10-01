@@ -508,8 +508,8 @@ Cron Usage:
     
     # Handle --list-patterns
     if args.list_patterns:
-        # Read global configuration for banner display
-        quiet_mode = read_global_config_bool('QUIET_MODE', False)
+        # Read configuration for banner display with CLI > ENV > Local .env > Global .env priority
+        quiet_mode = read_config_bool('QUIET_MODE', cli_args=args, default=False)
         
         # Display banner before listing patterns
         display_banner("plex_make_years", "2.1.0", 
@@ -535,10 +535,10 @@ Cron Usage:
                 print(f"  '{example}' → {year} ({pattern_desc})")
         sys.exit(0)
     
-    # Read global configuration
-    auto_execute = read_global_config_bool('AUTO_EXECUTE', False)
-    auto_confirm = read_global_config_bool('AUTO_CONFIRM', False)
-    quiet_mode = read_global_config_bool('QUIET_MODE', False)
+    # Read configuration with CLI > ENV > Local .env > Global .env priority
+    auto_execute = read_config_bool('AUTO_EXECUTE', cli_args=args, default=False)
+    auto_confirm = read_config_bool('AUTO_CONFIRM', cli_args=args, default=False)
+    quiet_mode = read_config_bool('QUIET_MODE', cli_args=args, default=False)
     
     # Apply global configuration (CLI arguments take precedence)
     if auto_execute and not args.execute:

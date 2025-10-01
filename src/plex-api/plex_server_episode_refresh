@@ -371,8 +371,8 @@ Server Sources (in order of priority):
     
     args = parser.parse_args()
     
-    # Read global configuration
-    quiet_mode = read_global_config_bool('QUIET_MODE', False)
+    # Read configuration with CLI > ENV > Local .env > Global .env priority
+    quiet_mode = read_config_bool('QUIET_MODE', cli_args=args, default=False)
     
     # Display banner
     display_banner("plex_server_episode_refresh", VERSION, 

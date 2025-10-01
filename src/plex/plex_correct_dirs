@@ -376,13 +376,13 @@ Cron Usage:
     if args.debug:
         args.verbose = True
 
-    # Read global configuration
-    auto_execute = read_global_config_bool('AUTO_EXECUTE', False)
-    auto_confirm = read_global_config_bool('AUTO_CONFIRM', False)
-    auto_cleanup = read_global_config_bool('AUTO_CLEANUP', False)
-    quiet_mode = read_global_config_bool('QUIET_MODE', False)
+    # Read configuration with CLI > ENV > Local .env > Global .env priority
+    auto_execute = read_config_bool('AUTO_EXECUTE', cli_args=args, default=False)
+    auto_confirm = read_config_bool('AUTO_CONFIRM', cli_args=args, default=False)
+    auto_cleanup = read_config_bool('AUTO_CLEANUP', cli_args=args, default=False)
+    quiet_mode = read_config_bool('QUIET_MODE', cli_args=args, default=False)
 
-    # Apply global configuration (CLI arguments take precedence)
+    # Apply configuration (CLI arguments already have highest priority via read_config_bool)
     if auto_confirm and not args.yes:
         args.yes = True  # Set yes flag if AUTO_CONFIRM is set
     if auto_cleanup and not args.cleanup:

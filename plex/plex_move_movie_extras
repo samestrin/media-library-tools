@@ -63,13 +63,20 @@ if str(lib_path) not in sys.path:
 # Import all functions from modular libraries
 try:
     from core import (
+        ConfigCache,
         FileLock,
         acquire_lock,
+        debug_config_resolution,
+        get_config_source,
         is_non_interactive,
         is_windows,
+        read_config_bool,
+        read_config_value,
         read_global_config_bool,
+        read_local_env_file,
         release_lock,
         should_use_emojis,
+        validate_config_setup,
     )
     from filesystem import (
         get_directory_size,
@@ -656,12 +663,12 @@ Cron Usage:
     if args.debug:
         args.verbose = True
     
-    # Read global configuration
-    auto_execute = read_global_config_bool('AUTO_EXECUTE', False)
-    auto_confirm = read_global_config_bool('AUTO_CONFIRM', False)
-    quiet_mode = read_global_config_bool('QUIET_MODE', False)
-    
-    # Apply global configuration (CLI arguments take precedence)
+    # Read configuration with CLI > ENV > Local .env > Global .env priority
+    auto_execute = read_config_bool('AUTO_EXECUTE', cli_args=args, default=False)
+    auto_confirm = read_config_bool('AUTO_CONFIRM', cli_args=args, default=False)
+    quiet_mode = read_config_bool('QUIET_MODE', cli_args=args, default=False)
+
+    # Apply configuration (CLI arguments already have highest priority via read_config_bool)
     if auto_execute and not args.execute:
         args.execute = True  # Set execute flag if AUTO_EXECUTE is set
     if auto_confirm and not args.yes:

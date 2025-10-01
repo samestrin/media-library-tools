@@ -399,12 +399,12 @@ Cron Usage:
             print(f"  {ext}")
         sys.exit(0)
     
-    # Read global configuration
-    auto_execute = read_global_config_bool('AUTO_EXECUTE', False)
-    auto_confirm = read_global_config_bool('AUTO_CONFIRM', False)
-    quiet_mode = read_global_config_bool('QUIET_MODE', False)
-    
-    # Apply global configuration (CLI arguments take precedence)
+    # Read configuration with CLI > ENV > Local .env > Global .env priority
+    auto_execute = read_config_bool('AUTO_EXECUTE', cli_args=args, default=False)
+    auto_confirm = read_config_bool('AUTO_CONFIRM', cli_args=args, default=False)
+    quiet_mode = read_config_bool('QUIET_MODE', cli_args=args, default=False)
+
+    # Apply configuration (CLI arguments already have highest priority via read_config_bool)
     if auto_execute and not args.execute:
         args.execute = True  # Override dry_run if AUTO_EXECUTE is set
     if auto_confirm and not args.yes:

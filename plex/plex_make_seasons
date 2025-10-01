@@ -95,13 +95,20 @@ if str(lib_path) not in sys.path:
 # Import all functions from modular libraries
 try:
     from core import (
+        ConfigCache,
         FileLock,
         acquire_lock,
+        debug_config_resolution,
+        get_config_source,
         is_non_interactive,
         is_windows,
+        read_config_bool,
+        read_config_value,
         read_global_config_bool,
+        read_local_env_file,
         release_lock,
         should_use_emojis,
+        validate_config_setup,
     )
     from filesystem import (
         get_directory_size,
@@ -2245,15 +2252,15 @@ class Configuration:
         # Conflict handling
         self.no_conflict_prompt = False
 
-    def load_from_env(self) -> None:
-        """Load configuration from environment variables and .env files."""
-        # AUTO_EXECUTE
-        if read_global_config_bool('AUTO_EXECUTE', False):
+    def load_from_env(self, cli_args=None) -> None:
+        """Load configuration from environment variables and .env files with CLI priority."""
+        # AUTO_EXECUTE with CLI > ENV > Local .env > Global .env priority
+        if read_config_bool('AUTO_EXECUTE', cli_args=cli_args, default=False):
             self.execute = True
             self.dry_run = False
 
-        # AUTO_CONFIRM
-        if read_global_config_bool('AUTO_CONFIRM', False):
+        # AUTO_CONFIRM with CLI > ENV > Local .env > Global .env priority
+        if read_config_bool('AUTO_CONFIRM', cli_args=cli_args, default=False):
             self.yes = True
 
         # Sample detection
@@ -3128,8 +3135,8 @@ Cron Usage:
     elif args.verbose:
         config.verbose = True
 
-    # Load configuration from environment
-    config.load_from_env()
+    # Load configuration from environment with CLI priority
+    config.load_from_env(cli_args=args)
 
     # Apply CLI arguments (override environment)
     config.source_dir = Path(args.directory).resolve()
@@ -3172,7 +3179,7 @@ Cron Usage:
 
     # Handle --list-patterns
     if args.list_patterns:
-        quiet_mode = read_global_config_bool('QUIET_MODE', False)
+        quiet_mode = read_config_bool('QUIET_MODE', cli_args=args, default=False)
         display_banner("plex_make_seasons", VERSION,
                       "three-phase TV show season organizer",
                       config.no_banner, quiet_mode)
@@ -3201,7 +3208,7 @@ Cron Usage:
         print("Warning: -y/--yes flag has no effect in dry-run mode", file=sys.stderr)
 
     # Display banner
-    quiet_mode = read_global_config_bool('QUIET_MODE', False)
+    quiet_mode = read_config_bool('QUIET_MODE', cli_args=args, default=False)
     display_banner("plex_make_seasons", VERSION,
                   "three-phase TV show season organizer",
                   config.no_banner, quiet_mode)
