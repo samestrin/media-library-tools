@@ -1,0 +1,12 @@
+# Sample MP4 video file placeholder
+# This represents a common MP4 video file for testing
+# In real scenarios, this would be a binary video file
+# For testing purposes, this is a text placeholder
+
+Format: MP4
+Codec: H.264
+Size: 1.5 GB (placeholder)
+Duration: 90 minutes
+Resolution: 1920x1080
+Framerate: 23.976 fps
+Audio: AAC 5.1

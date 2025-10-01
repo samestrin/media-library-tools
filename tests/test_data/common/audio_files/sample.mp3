@@ -1,0 +1,15 @@
+# Sample MP3 audio file placeholder
+# This represents a common MP3 audio file for testing
+# In real scenarios, this would be a binary audio file
+# For testing purposes, this is a text placeholder
+
+Format: MP3
+Bitrate: 320 kbps
+Size: 8.5 MB (placeholder)
+Duration: 3:45
+Sample Rate: 44.1 kHz
+Channels: Stereo
+Genre: Rock
+Artist: Sample Artist
+Album: Sample Album
+Title: Sample Song

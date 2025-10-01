@@ -1,0 +1,12 @@
+# Sample epic movie file placeholder
+# This represents a main movie file in a Plex library
+# In real scenarios, this would be a binary video file
+# For testing purposes, this is a text placeholder
+
+Movie: Epic Movie (2023)
+Format: MKV
+Size: 4.2 GB (placeholder)
+Duration: 158 minutes
+Resolution: 1920x1080
+Genre: Adventure/Fantasy
+Quality: 1080p BluRay

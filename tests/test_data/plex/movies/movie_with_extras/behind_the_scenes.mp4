@@ -1,0 +1,11 @@
+# Sample behind the scenes featurette placeholder
+# This represents a movie extra that needs Plex naming
+# Should be renamed to: Epic Movie (2023)-behindthescenes.mp4
+# For testing purposes, this is a text placeholder
+
+Featurette: Behind the Scenes
+Movie: Epic Movie (2023)
+Format: MP4
+Size: 850 MB (placeholder)
+Duration: 45 minutes
+Type: Behind the Scenes

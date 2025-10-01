@@ -1,0 +1,5 @@
+Content: Movie with special characters in filename
+Type: Video placeholder (MKV)
+Characters: Unicode (Ñ, ñ), apostrophe, parentheses, brackets, ampersand, trademark symbol
+Scenario: Special character handling in file operations
+Purpose: Test Unicode and special character support

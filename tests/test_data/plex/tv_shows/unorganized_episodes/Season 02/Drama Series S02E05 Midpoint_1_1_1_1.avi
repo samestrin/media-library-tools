@@ -1,0 +1,13 @@
+# Sample TV episode file placeholder
+# This represents an unorganized TV episode that needs to be moved to Season 02 directory
+# In real scenarios, this would be a binary video file
+# For testing purposes, this is a text placeholder
+
+Show: Drama Series
+Season: 2
+Episode: 5
+Title: Midpoint
+Format: AVI
+Size: 700 MB (placeholder)
+Duration: 41 minutes
+Resolution: 1280x720

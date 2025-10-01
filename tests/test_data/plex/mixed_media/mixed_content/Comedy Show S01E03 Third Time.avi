@@ -1,0 +1,14 @@
+# Sample comedy episode file placeholder
+# This represents another TV episode mixed with movie files
+# In real scenarios, this would be a binary video file
+# For testing purposes, this is a text placeholder
+
+Show: Comedy Show
+Season: 1
+Episode: 3
+Title: Third Time
+Format: AVI
+Size: 380 MB (placeholder)
+Duration: 21 minutes
+Resolution: 1280x720
+Genre: Comedy

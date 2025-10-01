@@ -1,0 +1,13 @@
+# Sample TV episode file placeholder
+# This represents a downloaded TV episode file
+# In real scenarios, this would be a binary video file
+# For testing purposes, this is a text placeholder
+
+Show: TV Show
+Season: 1
+Episode: 1
+Title: Episode Title
+Format: MKV
+Size: 350 MB (placeholder)
+Duration: 42 minutes
+Resolution: 1920x1080

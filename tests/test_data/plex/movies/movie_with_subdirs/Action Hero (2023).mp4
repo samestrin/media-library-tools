@@ -1,0 +1,12 @@
+# Sample action movie file placeholder
+# This represents a main movie file in a Plex library
+# In real scenarios, this would be a binary video file
+# For testing purposes, this is a text placeholder
+
+Movie: Action Hero (2023)
+Format: MP4
+Size: 3.1 GB (placeholder)
+Duration: 142 minutes
+Resolution: 1920x1080
+Genre: Action
+Quality: 1080p

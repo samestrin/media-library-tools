@@ -1,0 +1,5 @@
+BitTorrent indicator file
+Magnet: magnet:?xt=urn:btih:example
+Created: 2023-12-01 11:00:00
+Type: BitTorrent indicator
+Conflict: Both SABnzbd and BitTorrent indicators present

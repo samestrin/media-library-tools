@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<nzb xmlns="http://www.newzbin.com/DTD/2003/nzb">
+  <head>
+    <meta type="title">Sample Movie (2023)</meta>
+    <meta type="tag">movie</meta>
+  </head>
+  <file poster="poster@example.com" date="1234567890" subject="Sample Movie (2023) [1/50] - &quot;sample.movie.2023.mkv&quot; yEnc">
+    <groups>
+      <group>alt.binaries.movies</group>
+    </groups>
+    <segments>
+      <segment bytes="768000" number="1">sample123@example.com</segment>
+    </segments>
+  </file>
+</nzb>

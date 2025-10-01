@@ -1,0 +1,10 @@
+# Sample video file placeholder
+# This represents a downloaded movie file via BitTorrent
+# In real scenarios, this would be a binary video file
+# For testing purposes, this is a text placeholder
+
+Movie: Another Movie (2023)
+Format: MP4
+Size: 800 MB (placeholder)
+Duration: 95 minutes
+Resolution: 1280x720

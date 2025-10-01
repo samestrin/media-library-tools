@@ -1,0 +1,13 @@
+# Sample MKV video file placeholder
+# This represents a common MKV video file for testing
+# In real scenarios, this would be a binary video file
+# For testing purposes, this is a text placeholder
+
+Format: MKV (Matroska)
+Codec: H.264
+Size: 2.1 GB (placeholder)
+Duration: 120 minutes
+Resolution: 1920x1080
+Framerate: 24 fps
+Audio: DTS-HD MA 7.1
+Subtitles: English, Spanish, French

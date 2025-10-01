@@ -1,0 +1,13 @@
+# Sample TV episode file placeholder
+# This represents an unorganized TV episode that needs to be moved to Season 02 directory
+# In real scenarios, this would be a binary video file
+# For testing purposes, this is a text placeholder
+
+Show: Drama Series
+Season: 2
+Episode: 1
+Title: New Chapter
+Format: MKV
+Size: 1.1 GB (placeholder)
+Duration: 44 minutes
+Resolution: 1920x1080

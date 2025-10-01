@@ -1,0 +1,19 @@
+1
+00:00:01,000 --> 00:00:04,000
+This is a sample subtitle file for testing purposes.
+
+2
+00:00:05,000 --> 00:00:08,000
+Subtitle files are commonly found with video content.
+
+3
+00:00:09,000 --> 00:00:12,000
+This SRT format is widely supported by media players.
+
+4
+00:00:13,000 --> 00:00:16,000
+Testing subtitle detection and handling capabilities.
+
+5
+00:00:17,000 --> 00:00:20,000
+End of sample subtitle content.
